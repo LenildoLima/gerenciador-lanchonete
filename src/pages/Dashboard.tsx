@@ -8,6 +8,7 @@ interface Product {
   id: string;
   name: string;
   category: string;
+  active: boolean;
   stock: number;
   min_stock: number;
 }
