@@ -12,18 +12,18 @@ import { toast } from "sonner";
 
 interface Product {
   id: string;
-  name: string;
-  category: string;
-  price: number;
-  cost: number;
-  stock: number;
-  min_stock: number;
-  active: boolean;
+  nome: string;
+  categoria: string;
+  preco: number;
+  custo: number;
+  estoque: number;
+  estoque_minimo: number;
+  ativo: boolean;
 }
 
 const categories = ["Lanches", "Lançamentos", "Éxodo", "Porções", "Sobremesas"];
 
-const emptyProduct = { name: "", category: "Lanches", price: 0, cost: 0, stock: 0, min_stock: 5, active: true };
+const emptyProduct = { nome: "", categoria: "Lanches", preco: 0, custo: 0, estoque: 0, estoque_minimo: 5, ativo: true };
 
 export default function Products() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -37,7 +37,7 @@ export default function Products() {
   }, []);
 
   async function fetchProducts() {
-    const { data } = await supabase.from("products").select("*").order("name");
+    const { data } = await supabase.from("produtos").select("*").order("nome");
     setProducts((data as Product[]) || []);
   }
 
@@ -49,20 +49,20 @@ export default function Products() {
 
   function openEdit(p: Product) {
     setEditing(p);
-    setForm({ name: p.name, category: p.category, price: p.price, cost: p.cost, stock: p.stock, min_stock: p.min_stock, active: p.active });
+    setForm({ nome: p.nome, categoria: p.categoria, preco: p.preco, custo: p.custo, estoque: p.estoque, estoque_minimo: p.estoque_minimo, ativo: p.ativo });
     setModalOpen(true);
   }
 
   async function handleSave() {
-    if (!form.name.trim()) {
+    if (!form.nome.trim()) {
       toast.error("Nome é obrigatório");
       return;
     }
     if (editing) {
-      await supabase.from("products").update(form).eq("id", editing.id);
+      await supabase.from("produtos").update(form).eq("id", editing.id);
       toast.success("Produto atualizado!");
     } else {
-      await supabase.from("products").insert(form);
+      await supabase.from("produtos").insert(form);
       toast.success("Produto criado!");
     }
     setModalOpen(false);
@@ -71,18 +71,18 @@ export default function Products() {
 
   async function handleDelete(id: string) {
     if (!confirm("Deseja excluir este produto?")) return;
-    await supabase.from("products").delete().eq("id", id);
+    await supabase.from("produtos").delete().eq("id", id);
     toast.success("Produto excluído!");
     fetchProducts();
   }
 
   const filtered = products.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
+    p.nome.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="sticky top-20 z-30 -mx-4 px-4 py-4 -mt-4 bg-background/95 backdrop-blur shadow-sm md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Produtos</h1>
           <p className="text-sm text-muted-foreground">Gerenciar catálogo e estoque</p>
@@ -102,10 +102,11 @@ export default function Products() {
         />
       </div>
 
-      <div className="card-metric overflow-hidden p-0">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/50">
+      <div className="card-metric p-0 overflow-hidden relative">
+        <div className="max-h-[60vh] overflow-auto scrollbar-thin scrollbar-thumb-muted-foreground/20">
+          <table className="w-full text-sm border-collapse">
+            <thead className="sticky top-0 z-20 bg-background/95 backdrop-blur shadow-sm">
+              <tr className="border-b border-border">
               <th className="text-left p-3 font-medium text-muted-foreground">PRODUTO</th>
               <th className="text-left p-3 font-medium text-muted-foreground">CATEGORIA</th>
               <th className="text-left p-3 font-medium text-muted-foreground">PREÇO</th>
@@ -117,17 +118,17 @@ export default function Products() {
           <tbody>
             {filtered.map((p) => (
               <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                <td className="p-3 font-medium">{p.name}</td>
-                <td className="p-3 text-muted-foreground">{p.category}</td>
-                <td className="p-3">{formatCurrency(p.price)}</td>
+                <td className="p-3 font-medium">{p.nome}</td>
+                <td className="p-3 text-muted-foreground">{p.categoria}</td>
+                <td className="p-3">{formatCurrency(p.preco)}</td>
                 <td className="p-3">
-                  <span className={p.stock < p.min_stock ? "text-destructive font-bold" : ""}>
-                    {p.stock}
+                  <span className={p.estoque < p.estoque_minimo ? "text-destructive font-bold" : ""}>
+                    {p.estoque}
                   </span>
                 </td>
                 <td className="p-3">
-                  <span className={p.active ? "badge-active" : "badge-inactive"}>
-                    {p.active ? "Ativo" : "Inativo"}
+                  <span className={p.ativo ? "badge-active" : "badge-inactive"}>
+                    {p.ativo ? "Ativo" : "Inativo"}
                   </span>
                 </td>
                 <td className="p-3 text-right">
@@ -150,6 +151,7 @@ export default function Products() {
           </tbody>
         </table>
       </div>
+    </div>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
@@ -159,11 +161,11 @@ export default function Products() {
           <div className="space-y-4">
             <div>
               <Label>Nome</Label>
-              <Input placeholder="Ex: X-Burger" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              <Input placeholder="Ex: X-Burger" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />
             </div>
             <div>
               <Label>Categoria</Label>
-              <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+              <Select value={form.categoria} onValueChange={(v) => setForm({ ...form, categoria: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
@@ -175,25 +177,25 @@ export default function Products() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Preço (R$)</Label>
-                <Input type="number" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
+                <Input type="number" step="0.01" value={form.preco} onChange={(e) => setForm({ ...form, preco: Number(e.target.value) })} />
               </div>
               <div>
                 <Label>Custo (R$)</Label>
-                <Input type="number" step="0.01" value={form.cost} onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })} />
+                <Input type="number" step="0.01" value={form.custo} onChange={(e) => setForm({ ...form, custo: Number(e.target.value) })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Estoque</Label>
-                <Input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} />
+                <Input type="number" value={form.estoque} onChange={(e) => setForm({ ...form, estoque: Number(e.target.value) })} />
               </div>
               <div>
                 <Label>Estoque Mínimo</Label>
-                <Input type="number" value={form.min_stock} onChange={(e) => setForm({ ...form, min_stock: Number(e.target.value) })} />
+                <Input type="number" value={form.estoque_minimo} onChange={(e) => setForm({ ...form, estoque_minimo: Number(e.target.value) })} />
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Switch checked={form.active} onCheckedChange={(v) => setForm({ ...form, active: v })} />
+              <Switch checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} />
               <Label>Produto ativo</Label>
             </div>
             <div className="flex justify-end gap-2 pt-2">

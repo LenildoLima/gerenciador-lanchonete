@@ -1,20 +1,12 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
+import { Navbar } from "@/components/Navbar";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col">
-          <header className="h-12 flex items-center border-b border-border md:hidden">
-            <SidebarTrigger className="ml-2" />
-          </header>
-          <main className="flex-1 p-6 overflow-auto">
-            {children}
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
+    <div className="min-h-screen flex flex-col w-full bg-background">
+      <Navbar />
+      <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full animate-in fade-in duration-500">
+        {children}
+      </main>
+    </div>
   );
 }

@@ -22,7 +22,7 @@ export function formatTime(date: string): string {
   }).format(new Date(date));
 }
 
-export function getCategoryBadgeClass(category: string): string {
+export function getCategoriaBadgeClass(categoria: string): string {
   const map: Record<string, string> = {
     Lanches: "category-badge-lanches",
     Lançamentos: "category-badge-lancamentos",
@@ -30,5 +30,5 @@ export function getCategoryBadgeClass(category: string): string {
     Porções: "category-badge-porcoes",
     Sobremesas: "category-badge-sobremesas",
   };
-  return map[category] || "category-badge-lanches";
+  return map[categoria] || "category-badge-lanches";
 }

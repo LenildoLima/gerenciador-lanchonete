@@ -14,113 +14,113 @@ export type Database = {
   }
   public: {
     Tables: {
-      products: {
+      produtos: {
         Row: {
-          active: boolean
-          category: string
-          cost: number
-          created_at: string
+          ativo: boolean
+          categoria: string
+          custo: number
+          criado_em: string
           id: string
-          min_stock: number
-          name: string
-          price: number
-          stock: number
+          estoque_minimo: number
+          nome: string
+          preco: number
+          estoque: number
         }
         Insert: {
-          active?: boolean
-          category: string
-          cost?: number
-          created_at?: string
+          ativo?: boolean
+          categoria: string
+          custo?: number
+          criado_em?: string
           id?: string
-          min_stock?: number
-          name: string
-          price?: number
-          stock?: number
+          estoque_minimo?: number
+          nome: string
+          preco?: number
+          estoque?: number
         }
         Update: {
-          active?: boolean
-          category?: string
-          cost?: number
-          created_at?: string
+          ativo?: boolean
+          categoria?: string
+          custo?: number
+          criado_em?: string
           id?: string
-          min_stock?: number
-          name?: string
-          price?: number
-          stock?: number
+          estoque_minimo?: number
+          nome?: string
+          preco?: number
+          estoque?: number
         }
         Relationships: []
       }
-      sale_items: {
+      itens_venda: {
         Row: {
           id: string
-          product_id: string
-          product_name: string
-          quantity: number
-          sale_id: string
+          produto_id: string
+          nome_produto: string
+          quantidade: number
+          venda_id: string
           subtotal: number
-          unit_price: number
+          preco_unitario: number
         }
         Insert: {
           id?: string
-          product_id: string
-          product_name: string
-          quantity?: number
-          sale_id: string
+          produto_id: string
+          nome_produto: string
+          quantidade?: number
+          venda_id: string
           subtotal?: number
-          unit_price?: number
+          preco_unitario?: number
         }
         Update: {
           id?: string
-          product_id?: string
-          product_name?: string
-          quantity?: number
-          sale_id?: string
+          produto_id?: string
+          nome_produto?: string
+          quantidade?: number
+          venda_id?: string
           subtotal?: number
-          unit_price?: number
+          preco_unitario?: number
         }
         Relationships: [
           {
-            foreignKeyName: "sale_items_product_id_fkey"
-            columns: ["product_id"]
+            foreignKeyName: "itens_venda_produto_id_fkey"
+            columns: ["produto_id"]
             isOneToOne: false
-            referencedRelation: "products"
+            referencedRelation: "produtos"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "sale_items_sale_id_fkey"
-            columns: ["sale_id"]
+            foreignKeyName: "itens_venda_venda_id_fkey"
+            columns: ["venda_id"]
             isOneToOne: false
-            referencedRelation: "sales"
+            referencedRelation: "vendas"
             referencedColumns: ["id"]
           },
         ]
       }
-      sales: {
+      vendas: {
         Row: {
-          created_at: string
-          customer_name: string | null
+          criado_em: string
+          nome_cliente: string | null
           id: string
-          notes: string | null
-          payment_method: string
-          status: string
+          observacoes: string | null
+          forma_pagamento: string
+          situacao: string
           total: number
         }
         Insert: {
-          created_at?: string
-          customer_name?: string | null
+          criado_em?: string
+          nome_cliente?: string | null
           id?: string
-          notes?: string | null
-          payment_method: string
-          status?: string
+          observacoes?: string | null
+          forma_pagamento: string
+          situacao?: string
           total?: number
         }
         Update: {
-          created_at?: string
-          customer_name?: string | null
+          criado_em?: string
+          nome_cliente?: string | null
           id?: string
-          notes?: string | null
-          payment_method?: string
-          status?: string
+          observacoes?: string | null
+          forma_pagamento?: string
+          situacao?: string
           total?: number
         }
         Relationships: []
