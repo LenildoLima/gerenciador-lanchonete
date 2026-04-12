@@ -1,182 +1,359 @@
-import { LayoutDashboard, Package, ShoppingCart, ClipboardList, Menu, X, Users, LogOut, UserCircle, Activity, Wallet, Bike } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
+import { 
+  LayoutDashboard, 
+  Package, 
+  ShoppingCart, 
+  Receipt, 
+  Menu, 
+  X, 
+  Bike, 
+  LogOut, 
+  UserCircle, 
+  Shield, 
+  Wallet, 
+  ShoppingBag, 
+  ChevronDown, 
+  Settings, 
+  UserCog,
+  User 
+} from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 
-const todosItems = [
-  { title: "Painel", url: "/", icon: LayoutDashboard, perfis: ["admin"] },
-  { title: "Produtos", url: "/produtos", icon: Package, perfis: ["admin"] },
-  { title: "Nova Venda", url: "/nova-venda", icon: ShoppingCart, perfis: ["admin", "atendente"] },
-  { title: "Vendas", url: "/vendas", icon: ClipboardList, perfis: ["admin", "atendente"] },
-  { title: "Usuários", url: "/usuarios", icon: Users, perfis: ["admin"] },
-  { title: "Caixa", url: "/caixa", icon: Wallet, perfis: ["admin", "atendente"] },
-  { title: "Entregadores", url: "/entregadores", icon: Bike, perfis: ["admin"] },
-  { title: "Entregas", url: "/entregas", icon: Bike, perfis: ["admin", "atendente"] },
-  { title: "Auditoria", url: "/auditoria", icon: Activity, perfis: ["admin"] },
+const dropdownGroups = [
+  {
+    name: "Vendas",
+    icon: ShoppingBag,
+    items: [
+      { title: "Nova Venda", url: "/nova-venda", icon: ShoppingCart, color: "#16a34a", perfis: ["admin", "atendente"] },
+      { title: "Vendas", url: "/vendas", icon: Receipt, color: "#2563eb", perfis: ["admin", "atendente"] },
+      { title: "Entregas", url: "/entregas", icon: Bike, color: "#db2777", perfis: ["admin", "atendente"] },
+    ]
+  },
+  {
+    name: "Gestão",
+    icon: Package,
+    items: [
+      { title: "Produtos", url: "/produtos", icon: Package, color: "#d97706", perfis: ["admin"] },
+      { title: "Entregadores", url: "/entregadores", icon: Bike, color: "#0891b2", perfis: ["admin"] },
+    ]
+  },
+  {
+    name: "Financeiro",
+    icon: Wallet,
+    items: [
+      { title: "Caixa", url: "/caixa", icon: Wallet, color: "#15803d", perfis: ["admin", "atendente"] },
+    ]
+  }
 ];
 
 export function Navbar() {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const { usuario, logout } = useAuth();
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const items = todosItems.filter(
-    (item) => !usuario || item.perfis.includes(usuario.perfil)
-  );
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setOpenDropdown(null);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
+  useEffect(() => {
+    setOpenDropdown(null);
+    setIsOpen(false);
+  }, [location.pathname]);
+
+  const getFilteredGroups = () => {
+    return dropdownGroups.map(group => ({
+      ...group,
+      items: group.items.filter(item => !usuario || item.perfis.includes(usuario.perfil))
+    })).filter(group => group.items.length > 0);
+  };
+
+  const filteredGroups = getFilteredGroups();
   const primeiroNome = usuario?.nome?.split(" ")[0] ?? "";
+  const iniciais = (usuario?.nome?.[0] || "U").toUpperCase();
+  const isAdmin = usuario?.perfil === "admin";
+
+  const isGroupActive = (items: { url: string }[]) => {
+    return items.some(item => location.pathname === item.url);
+  };
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto px-4">
-        <div className="flex h-20 items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-primary shadow-lg shadow-primary/20 flex items-center justify-center text-2xl transition-transform hover:scale-105">
-              🍔
+    <nav className="sticky top-0 z-50 w-full bg-gradient-to-r from-[#f97316] to-[#ea580c] shadow-[0_4px_20px_rgba(249,115,22,0.4)] border-none h-16">
+      <div className="container mx-auto px-4 h-full">
+        <div className="flex h-full items-center justify-between">
+          {/* ESQUERDA - apenas o logo */}
+          <Link to="/" className="flex flex-col group">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white shadow-xl flex items-center justify-center text-xl transition-all duration-300 group-hover:scale-110">
+                🍔
+              </div>
+              <div>
+                <h1 className="font-black text-xl tracking-tighter text-white leading-none">LaunchApp</h1>
+                <p className="text-[9px] text-white/70 font-bold uppercase tracking-widest mt-0.5">Gestão de Lanchonete</p>
+              </div>
             </div>
-            <div className="hidden sm:block">
-              <h1 className="font-black text-2xl tracking-tight leading-none text-foreground">LaunchApp</h1>
-              <p className="text-sm text-muted-foreground font-medium">Gestão de Lanchonete</p>
-            </div>
-          </div>
+          </Link>
 
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center gap-1">
-            {items.map((item) => {
-              const isActive = location.pathname === item.url;
-              return (
-                <NavLink
-                  key={item.title}
-                  to={item.url}
-                  end
-                  className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  <item.icon className="w-4 h-4 mr-2" />
-                  {item.title}
-                </NavLink>
-              );
-            })}
-          </div>
-
-          {/* Usuário + Sair (desktop) */}
-          {usuario && (
-            <div className="hidden md:flex items-center gap-3">
-              <Link 
-                to="/perfil" 
-                title="Meu perfil"
-                style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "0.6rem", 
-                  textDecoration: "none",
-                  padding: "0.4rem 0.8rem",
-                  borderRadius: "0.6rem",
-                  border: "1px solid #f3f4f6",
-                  background: "#f9fafb",
-                  transition: "all 0.2s"
-                }} 
-                className="hover:bg-gray-100 hover:border-gray-200"
+          {/* DIREITA - todos os menus */}
+          <div className="flex items-center gap-4 h-full">
+            {/* Desktop Menu */}
+            <div className="hidden md:flex items-center gap-1 h-full" ref={dropdownRef}>
+              <Link
+                to="/"
+                className={`flex items-center gap-2 px-3 py-2 rounded-[0.65rem] transition-all text-sm font-bold ${
+                  location.pathname === "/"
+                    ? "bg-white/25 text-white"
+                    : "text-white/90 hover:bg-white/20 hover:text-white"
+                }`}
               >
-                <UserCircle size={28} color="#ea580c" strokeWidth={1.5} />
-                <div style={{ textAlign: "left" }}>
-                  <p style={{ fontSize: "0.85rem", fontWeight: 700, color: "#111827", lineHeight: 1.1 }}>
-                    {primeiroNome}
-                  </p>
-                  <p style={{ fontSize: "0.7rem", color: "#6b7280", marginTop: "0.1rem", fontWeight: 500 }}>
-                    Ver perfil
-                  </p>
-                </div>
+                <LayoutDashboard size={18} />
+                Painel
               </Link>
-              <button
-                onClick={logout}
-                title="Sair"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "0.35rem",
-                  padding: "0.45rem 0.9rem",
-                  borderRadius: "0.6rem",
-                  border: "1.5px solid #e5e7eb",
-                  background: "#fff",
-                  color: "#6b7280",
-                  fontWeight: 600,
-                  fontSize: "0.82rem",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "#fef2f2";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "#fecaca";
-                  (e.currentTarget as HTMLButtonElement).style.color = "#dc2626";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = "#fff";
-                  (e.currentTarget as HTMLButtonElement).style.borderColor = "#e5e7eb";
-                  (e.currentTarget as HTMLButtonElement).style.color = "#6b7280";
-                }}
-              >
-                <LogOut size={15} />
-                Sair
-              </button>
-            </div>
-          )}
 
-          {/* Mobile Menu Button */}
-          <div className="md:hidden">
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)}>
-              {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </Button>
+              {filteredGroups.map((group) => {
+                const active = openDropdown === group.name;
+                const containsPage = isGroupActive(group.items);
+
+                return (
+                  <div key={group.name} className="relative h-full flex items-center">
+                    <button
+                      onClick={() => setOpenDropdown(active ? null : group.name)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-[0.65rem] transition-all text-sm font-bold ${
+                        containsPage || active
+                          ? "bg-white/25 text-white"
+                          : "text-white/90 hover:bg-white/20 hover:text-white"
+                      }`}
+                    >
+                      <group.icon size={18} />
+                      {group.name}
+                      <ChevronDown size={14} className={`transition-transform duration-200 ${active ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {active && (
+                      <div className="absolute top-[calc(100%-8px)] right-0 w-64 bg-white rounded-[0.75rem] shadow-[0_8px_24px_rgba(0,0,0,0.12)] p-2 animate-in fade-in zoom-in-95 duration-200 z-50">
+                        {group.items.map((item) => {
+                          const isActive = location.pathname === item.url;
+                          return (
+                            <Link
+                              key={item.title}
+                              to={item.url}
+                              className={`flex items-center gap-3 p-2 rounded-[0.5rem] transition-all group ${
+                                isActive
+                                  ? "bg-[#f97316] text-white"
+                                  : "text-gray-700 hover:bg-[#fff7ed] hover:text-[#f97316]"
+                              }`}
+                            >
+                              <div 
+                                style={{ backgroundColor: item.color }} 
+                                className="w-8 h-8 flex items-center justify-center rounded-[0.5rem] text-white shadow-sm"
+                              >
+                                <item.icon size={16} />
+                              </div>
+                              <span className="font-bold text-sm tracking-tight">{item.title}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Menu Administração / Usuário (Desktop) */}
+              {usuario && (
+                <div className="relative h-full flex items-center">
+                  <button
+                    onClick={() => setOpenDropdown(openDropdown === "UserMenu" ? null : "UserMenu")}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-[0.65rem] transition-all text-sm font-bold ${
+                      openDropdown === "UserMenu" || (isAdmin ? isGroupActive([{url: "/usuarios"}, {url: "/auditoria"}, {url: "/perfil"}]) : location.pathname === "/perfil")
+                        ? "bg-white/25 text-white"
+                        : "text-white/90 hover:bg-white/20 hover:text-white"
+                    }`}
+                  >
+                    <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-black text-xs border-2 border-white/50 shadow-sm">
+                      {iniciais}
+                    </div>
+                    <span>{isAdmin ? "Administração" : primeiroNome}</span>
+                    <ChevronDown size={14} className={`transition-transform duration-200 ${openDropdown === "UserMenu" ? "rotate-180" : ""}`} />
+                  </button>
+
+                  {openDropdown === "UserMenu" && (
+                    <div className="absolute top-[calc(100%-8px)] right-0 w-64 bg-white rounded-[0.75rem] shadow-[0_8px_24px_rgba(0,0,0,0.12)] p-2 animate-in fade-in zoom-in-95 duration-200 z-50">
+                      {isAdmin && (
+                        <>
+                          <Link
+                            to="/usuarios"
+                            className={`flex items-center gap-3 p-2 rounded-[0.5rem] transition-all group ${
+                              location.pathname === "/usuarios" ? "bg-[#f97316] text-white" : "text-gray-700 hover:bg-[#fff7ed] hover:text-[#f97316]"
+                            }`}
+                          >
+                            <div className="w-8 h-8 flex items-center justify-center rounded-[0.5rem] bg-[#dc2626] text-white shadow-sm">
+                              <UserCog size={16} />
+                            </div>
+                            <span className="font-bold text-sm tracking-tight">Usuários</span>
+                          </Link>
+                          <Link
+                            to="/auditoria"
+                            className={`flex items-center gap-3 p-2 rounded-[0.5rem] transition-all group mt-1 ${
+                              location.pathname === "/auditoria" ? "bg-[#f97316] text-white" : "text-gray-700 hover:bg-[#fff7ed] hover:text-[#f97316]"
+                            }`}
+                          >
+                            <div className="w-8 h-8 flex items-center justify-center rounded-[0.5rem] bg-[#374151] text-white shadow-sm">
+                              <Shield size={16} />
+                            </div>
+                            <span className="font-bold text-sm tracking-tight">Auditoria</span>
+                          </Link>
+                          <div className="h-px bg-gray-100 my-2 mx-1" />
+                        </>
+                      )}
+                      
+                      <Link
+                        to="/perfil"
+                        className={`flex items-center gap-3 p-2 rounded-[0.5rem] transition-all group ${
+                          location.pathname === "/perfil" ? "bg-[#f97316] text-white" : "text-gray-700 hover:bg-[#fff7ed] hover:text-[#f97316]"
+                        }`}
+                      >
+                        <div className="w-8 h-8 flex items-center justify-center rounded-[0.5rem] bg-[#7c3aed] text-white shadow-sm">
+                          <User size={16} />
+                        </div>
+                        <span className="font-bold text-sm tracking-tight">Meu Perfil</span>
+                      </Link>
+
+                      <div className="h-px bg-gray-100 my-2 mx-1" />
+
+                      <button
+                        onClick={logout}
+                        className="w-full flex items-center gap-3 p-2 rounded-[0.5rem] transition-all group text-red-600 hover:bg-red-50"
+                      >
+                        <div className="w-8 h-8 flex items-center justify-center rounded-[0.5rem] bg-[#dc2626] text-white shadow-sm">
+                          <LogOut size={16} />
+                        </div>
+                        <span className="font-bold text-sm tracking-tight">Sair</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Mobile Menu Button */}
+            <div className="md:hidden">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setIsOpen(!isOpen)}
+                className="w-10 h-10 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all border border-white/20"
+              >
+                {isOpen ? <X size={20} /> : <Menu size={20} />}
+              </Button>
+            </div>
           </div>
         </div>
 
-        {/* Mobile Menu */}
         {isOpen && (
-          <div className="md:hidden pb-4 space-y-1 animate-in slide-in-from-top-2 duration-200">
-            {items.map((item) => {
-              const isActive = location.pathname === item.url;
-              return (
-                <NavLink
-                  key={item.title}
-                  to={item.url}
-                  end
-                  onClick={() => setIsOpen(false)}
-                  className={`flex items-center px-4 py-3 text-sm font-medium rounded-lg transition-colors ${
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                  }`}
-                >
-                  <item.icon className="w-5 h-5 mr-3" />
-                  {item.title}
-                </NavLink>
-              );
-            })}
-            {/* Perfil e Sair mobile */}
+          <div className="md:hidden pb-6 space-y-4 animate-in slide-in-from-top-4 duration-300">
+            <Link
+              to="/"
+              onClick={() => setIsOpen(false)}
+              className={`flex items-center gap-3 px-4 py-4 rounded-xl transition-all shadow-md ${
+                location.pathname === "/"
+                  ? "bg-white text-orange-600 font-black"
+                  : "bg-white/10 text-white hover:bg-white/20 font-bold"
+              }`}
+            >
+              <LayoutDashboard size={20} />
+              <span>Painel</span>
+            </Link>
+
+            {filteredGroups.map((group) => (
+              <div key={group.name} className="space-y-2">
+                <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] px-3">{group.name}</p>
+                <div className="grid grid-cols-1 gap-2">
+                  {group.items.map((item) => {
+                    const isActive = location.pathname === item.url;
+                    return (
+                      <Link
+                        key={item.title}
+                        to={item.url}
+                        onClick={() => setIsOpen(false)}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all shadow-md ${
+                          isActive
+                            ? "bg-white text-gray-900 font-black"
+                            : "bg-white/10 text-white hover:bg-white/20 font-bold"
+                        }`}
+                      >
+                        <div 
+                          style={{ backgroundColor: item.color }} 
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-white"
+                        >
+                          <item.icon size={18} />
+                        </div>
+                        <span className="text-sm">{item.title}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            
             {usuario && (
-              <>
+              <div className="pt-4 mt-4 border-t border-white/20 space-y-2">
+                <p className="text-[10px] font-black text-white/50 uppercase tracking-[0.2em] px-3">Conta</p>
+                
+                {isAdmin && (
+                  <>
+                    <Link
+                      to="/usuarios"
+                      onClick={() => setIsOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold ${
+                        location.pathname === "/usuarios" ? "bg-white text-gray-900" : "bg-white/10 text-white"
+                      }`}
+                    >
+                      <UserCog size={18} />
+                      Usuários
+                    </Link>
+                    <Link
+                      to="/auditoria"
+                      onClick={() => setIsOpen(false)}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold ${
+                        location.pathname === "/auditoria" ? "bg-white text-gray-900" : "bg-white/10 text-white"
+                      }`}
+                    >
+                      <Shield size={18} />
+                      Auditoria
+                    </Link>
+                  </>
+                )}
+
                 <Link
                   to="/perfil"
                   onClick={() => setIsOpen(false)}
-                  className="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                  style={{ textDecoration: "none" }}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold ${
+                    location.pathname === "/perfil" ? "bg-white text-gray-900" : "bg-white/10 text-white"
+                  }`}
                 >
-                  <UserCircle className="w-5 h-5 mr-3" />
+                  <UserCircle size={18} />
                   Meu Perfil
                 </Link>
-                <button
+                
+                <Button
                   onClick={() => { setIsOpen(false); logout(); }}
-                  className="flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                  variant="outline"
+                  className="w-full h-12 flex items-center justify-center gap-3 rounded-xl bg-red-600/20 border-red-500/50 text-white hover:bg-red-600 font-black transition-all"
                 >
-                  <LogOut className="w-5 h-5 mr-3" />
-                  Sair
-                </button>
-              </>
+                  <LogOut size={18} />
+                  SAIR DO SISTEMA
+                </Button>
+              </div>
             )}
           </div>
         )}

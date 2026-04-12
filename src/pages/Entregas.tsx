@@ -3,14 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { formatCurrency, formatDateTime } from "@/lib/format";
-import { 
-  Bike, 
-  Clock, 
-  MapPin, 
-  Phone, 
-  Package, 
-  CheckCircle2, 
-  Navigation, 
+import {
+  Bike,
+  Clock,
+  MapPin,
+  Phone,
+  Package,
+  CheckCircle2,
+  Navigation,
   AlertCircle,
   Loader2,
   ChevronRight,
@@ -32,11 +32,11 @@ interface Entrega {
   criado_em: string;
   entregador_id: string | null;
   entregador?: { id: string; nome: string; telefone: string | null };
-  venda?: { 
-    id: string; 
-    nome_cliente: string; 
-    total: number; 
-    criado_em: string; 
+  venda?: {
+    id: string;
+    nome_cliente: string;
+    total: number;
+    criado_em: string;
     observacoes: string | null;
     forma_pagamento_id: string;
   };
@@ -51,11 +51,11 @@ interface FormaPagamento {
 export default function Entregas() {
   const { usuario } = useAuth();
   const [entregas, setEntregas] = useState<Entrega[]>([]);
-  const [entregadoresAtivos, setEntregadoresAtivos] = useState<{id: string, nome: string}[]>([]);
+  const [entregadoresAtivos, setEntregadoresAtivos] = useState<{ id: string, nome: string }[]>([]);
   const [formasPagamento, setFormasPagamento] = useState<FormaPagamento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [filtroStatus, setFiltroStatus] = useState<"todas" | "pendente" | "saiu_para_entrega" | "entregue">("todas");
-  const [modalDesignar, setModalDesignar] = useState<{aberto: boolean, entrega_id: string | null}>({aberto: false, entrega_id: null});
+  const [modalDesignar, setModalDesignar] = useState<{ aberto: boolean, entrega_id: string | null }>({ aberto: false, entrega_id: null });
   const [entregadorSelecionado, setEntregadorSelecionado] = useState<string>("");
 
   useEffect(() => {
@@ -141,19 +141,19 @@ export default function Entregas() {
 
   async function handleDesignar() {
     if (!modalDesignar.entrega_id || !entregadorSelecionado) return;
-    
+
     try {
       const entregador = entregadoresAtivos.find(e => e.id === entregadorSelecionado);
       const entrega = entregas.find(e => e.id === modalDesignar.entrega_id);
-      
+
       if (!entregador || !entrega) return;
 
       // 1. Atualizar entrega
       const { error: entErr } = await (supabase as any)
         .from("entregas")
-        .update({ 
-          entregador_id: entregador.id, 
-          status: 'saiu_para_entrega' 
+        .update({
+          entregador_id: entregador.id,
+          status: 'saiu_para_entrega'
         })
         .eq("id", entrega.id);
       if (entErr) throw entErr;
@@ -161,7 +161,7 @@ export default function Entregas() {
       // 2. Atualizar saldo do entregador
       const { data: entData } = await (supabase as any).from("entregadores").select("saldo_a_receber").eq("id", entregador.id).single();
       const novoSaldo = (Number(entData?.saldo_a_receber) || 0) + (Number(entrega.taxa) || 0);
-      
+
       const { error: updErr } = await (supabase as any)
         .from("entregadores")
         .update({ saldo_a_receber: novoSaldo })
@@ -174,15 +174,15 @@ export default function Entregas() {
         usuario_nome: usuario?.nome || "",
         tipo: "entrega",
         acao: "Entregador designado",
-        detalhes: { 
-          entregador_nome: entregador.nome, 
-          cliente: entrega.venda?.nome_cliente, 
-          taxa: entrega.taxa 
+        detalhes: {
+          entregador_nome: entregador.nome,
+          cliente: entrega.venda?.nome_cliente,
+          taxa: entrega.taxa
         }
       });
 
       toast.success(`Entregador ${entregador.nome} designado!`);
-      setModalDesignar({aberto: false, entrega_id: null});
+      setModalDesignar({ aberto: false, entrega_id: null });
       setEntregadorSelecionado("");
       fetchEntregas();
     } catch (err) {
@@ -196,7 +196,7 @@ export default function Entregas() {
         .from("entregas")
         .update({ status: 'entregue' })
         .eq("id", entrega.id);
-      
+
       if (error) throw error;
 
       await registrarAuditoria({
@@ -204,11 +204,11 @@ export default function Entregas() {
         usuario_nome: usuario?.nome || "",
         tipo: "entrega",
         acao: "Entrega confirmada",
-        detalhes: { 
-          entregador_nome: entrega.entregador?.nome, 
-          cliente: entrega.venda?.nome_cliente, 
+        detalhes: {
+          entregador_nome: entrega.entregador?.nome,
+          cliente: entrega.venda?.nome_cliente,
           endereco: entrega.endereco,
-          taxa: entrega.taxa 
+          taxa: entrega.taxa
         }
       });
 
@@ -226,7 +226,7 @@ export default function Entregas() {
     if (statusOrder[a.status] !== statusOrder[b.status]) {
       return statusOrder[a.status] - statusOrder[b.status];
     }
-    
+
     // Dentro do mesmo status:
     if (a.status === 'entregue') {
       // Entregues: Mais recentes primeiro (DESC)
@@ -291,11 +291,10 @@ export default function Entregas() {
           <button
             key={s}
             onClick={() => setFiltroStatus(s)}
-            className={`px-5 py-2.5 text-xs font-black rounded-xl capitalize transition-all ${
-              filtroStatus === s 
-                ? "bg-white text-primary shadow-sm shadow-black/5 scale-[1.02]" 
+            className={`px-5 py-2.5 text-xs font-black rounded-xl capitalize transition-all ${filtroStatus === s
+                ? "bg-white text-primary shadow-sm shadow-black/5 scale-[1.02]"
                 : "text-muted-foreground hover:text-foreground"
-            }`}
+              }`}
           >
             {s === "saiu_para_entrega" ? "Em Rota" : s}
           </button>
@@ -307,31 +306,27 @@ export default function Entregas() {
           const posicaoGlobal = entregasOrdenadas.findIndex(item => item.id === e.id) + 1;
 
           return (
-            <div 
-              key={e.id} 
-              className={`group bg-white rounded-[2rem] border overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${
-                e.status === 'entregue' ? "opacity-75 border-border/30 grayscale-[50%]" : "border-border/60"
-              }`}
+            <div
+              key={e.id}
+              className={`group bg-white rounded-[2rem] border overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 ${e.status === 'entregue' ? "opacity-75 border-border/30 grayscale-[50%]" : "border-border/60"
+                }`}
             >
-              <div className={`p-4 flex justify-between items-center ${
-                e.status === 'pendente' ? "bg-red-50/50" : 
-                e.status === 'saiu_para_entrega' ? "bg-yellow-50/50" : "bg-muted/30"
-              }`}>
+              <div className={`p-4 flex justify-between items-center ${e.status === 'pendente' ? "bg-red-50/50" :
+                  e.status === 'saiu_para_entrega' ? "bg-yellow-50/50" : "bg-muted/30"
+                }`}>
                 <div className="flex items-center gap-2">
-                  <div className={`flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-black text-white shadow-sm ${
-                    e.status === 'entregue' ? "bg-muted-foreground/40" : "bg-[#f97316]"
-                  }`}>
+                  <div className={`flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-black text-white shadow-sm ${e.status === 'entregue' ? "bg-muted-foreground/40" : "bg-[#f97316]"
+                    }`}>
                     {posicaoGlobal}º
                   </div>
                   <span className="text-[10px] font-black text-muted-foreground uppercase opacity-60">Pedido</span>
                   <span className="text-sm font-black text-foreground">#{e.venda_id.substring(0, 6)}</span>
                 </div>
-                <Badge variant="outline" className={`font-black text-[9px] uppercase tracking-tighter rounded-lg border-2 shadow-sm ${
-                  e.status === 'pendente' ? "bg-white text-red-600 border-red-200" : 
-                  e.status === 'saiu_para_entrega' ? "bg-white text-yellow-600 border-yellow-200" : "bg-white text-green-600 border-green-200"
-                }`}>
-                  {e.status === 'pendente' ? "🔴 Pendente" : 
-                   e.status === 'saiu_para_entrega' ? "🟡 Em Rota" : "🟢 Entregue"}
+                <Badge variant="outline" className={`font-black text-[9px] uppercase tracking-tighter rounded-lg border-2 shadow-sm ${e.status === 'pendente' ? "bg-white text-red-600 border-red-200" :
+                    e.status === 'saiu_para_entrega' ? "bg-white text-yellow-600 border-yellow-200" : "bg-white text-green-600 border-green-200"
+                  }`}>
+                  {e.status === 'pendente' ? "🔴 Pendente" :
+                    e.status === 'saiu_para_entrega' ? "🟡 Em Rota" : "🟢 Entregue"}
                 </Badge>
               </div>
 
@@ -341,7 +336,7 @@ export default function Entregas() {
                     <User size={16} className="text-primary" /> {e.venda?.nome_cliente || "Consumidor"}
                   </div>
                   <div className="flex items-start gap-2 text-muted-foreground text-sm font-medium">
-                    <MapPin size={16} className="text-muted-foreground/60 shrink-0 mt-0.5" /> 
+                    <MapPin size={16} className="text-muted-foreground/60 shrink-0 mt-0.5" />
                     <span className="leading-tight">{e.endereco}</span>
                   </div>
                   {e.telefone && (
@@ -384,9 +379,9 @@ export default function Entregas() {
 
                 <div className="pt-2">
                   {e.status === 'pendente' && (
-                    <Button 
-                      className="w-full py-6 rounded-2xl font-black text-white shadow-lg shadow-orange-500/10 hover:shadow-orange-500/30 gap-2 text-xs" 
-                      onClick={() => setModalDesignar({aberto: true, entrega_id: e.id})}
+                    <Button
+                      className="w-full py-6 rounded-2xl font-black text-white shadow-lg shadow-orange-500/10 hover:shadow-orange-500/30 gap-2 text-xs"
+                      onClick={() => setModalDesignar({ aberto: true, entrega_id: e.id })}
                     >
                       <Bike size={18} /> DESIGNAR ENTREGADOR
                     </Button>
@@ -397,7 +392,7 @@ export default function Entregas() {
                         <User size={14} className="text-yellow-600" />
                         <span className="text-[10px] font-black text-yellow-700 uppercase tracking-wider">Com: <span className="text-xs">{e.entregador?.nome}</span></span>
                       </div>
-                      <Button 
+                      <Button
                         className="w-full py-6 rounded-2xl font-black bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-500/10 hover:shadow-green-500/30 gap-2 text-xs"
                         onClick={() => handleConfirmarEntrega(e)}
                       >
@@ -430,11 +425,11 @@ export default function Entregas() {
             <h2 className="text-xl font-black mb-6 flex items-center gap-3">
               <Navigation className="text-primary" /> Designar Entregador
             </h2>
-            
+
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-muted-foreground uppercase tracking-widest pl-1">Selecione o Entregador Ativo</label>
-                <select 
+                <select
                   className="w-full h-14 rounded-2xl border-2 border-border/40 px-4 font-black text-foreground focus:border-primary focus:outline-none bg-muted/20"
                   value={entregadorSelecionado}
                   onChange={e => setEntregadorSelecionado(e.target.value)}
@@ -450,7 +445,7 @@ export default function Entregas() {
               </div>
 
               <div className="flex gap-4 pt-2">
-                <Button variant="outline" className="flex-1 py-6 rounded-2xl font-bold" onClick={() => setModalDesignar({aberto: false, entrega_id: null})}>Cancelar</Button>
+                <Button variant="outline" className="flex-1 py-6 rounded-2xl font-bold" onClick={() => setModalDesignar({ aberto: false, entrega_id: null })}>Cancelar</Button>
                 <Button className="flex-1 py-6 rounded-2xl font-black text-white" disabled={!entregadorSelecionado} onClick={handleDesignar}>CONFIRMAR</Button>
               </div>
             </div>
