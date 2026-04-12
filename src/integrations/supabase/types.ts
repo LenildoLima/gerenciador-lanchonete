@@ -17,7 +17,7 @@ export type Database = {
       produtos: {
         Row: {
           ativo: boolean
-          categoria: string
+          categoria_id: string
           custo: number
           criado_em: string
           id: string
@@ -28,7 +28,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
-          categoria: string
+          categoria_id: string
           custo?: number
           criado_em?: string
           id?: string
@@ -39,7 +39,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
-          categoria?: string
+          categoria_id?: string
           custo?: number
           criado_em?: string
           id?: string
@@ -48,7 +48,15 @@ export type Database = {
           preco?: number
           estoque?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "produtos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       itens_venda: {
         Row: {
@@ -57,7 +65,6 @@ export type Database = {
           nome_produto: string
           quantidade: number
           venda_id: string
-          subtotal: number
           preco_unitario: number
         }
         Insert: {
@@ -66,7 +73,6 @@ export type Database = {
           nome_produto: string
           quantidade?: number
           venda_id: string
-          subtotal?: number
           preco_unitario?: number
         }
         Update: {
@@ -75,7 +81,6 @@ export type Database = {
           nome_produto?: string
           quantidade?: number
           venda_id?: string
-          subtotal?: number
           preco_unitario?: number
         }
         Relationships: [
@@ -95,35 +100,245 @@ export type Database = {
           },
         ]
       }
+      clientes: {
+        Row: {
+          id: string
+          nome: string
+          telefone: string | null
+          endereco: string | null
+          complemento: string | null
+          saldo_devedor: number | null
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          nome: string
+          telefone?: string | null
+          endereco?: string | null
+          complemento?: string | null
+          saldo_devedor?: number | null
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          nome?: string
+          telefone?: string | null
+          endereco?: string | null
+          complemento?: string | null
+          saldo_devedor?: number | null
+          criado_em?: string
+        }
+        Relationships: []
+      }
       vendas: {
         Row: {
           criado_em: string
           nome_cliente: string | null
+          cliente_id: string | null
           id: string
           observacoes: string | null
-          forma_pagamento: string
+          forma_pagamento_id: string
           situacao: string
           total: number
         }
         Insert: {
           criado_em?: string
           nome_cliente?: string | null
+          cliente_id?: string | null
           id?: string
           observacoes?: string | null
-          forma_pagamento: string
+          forma_pagamento_id: string
           situacao?: string
           total?: number
         }
         Update: {
           criado_em?: string
           nome_cliente?: string | null
+          cliente_id?: string | null
           id?: string
           observacoes?: string | null
-          forma_pagamento?: string
+          forma_pagamento_id?: string
           situacao?: string
           total?: number
         }
+        Relationships: [
+          {
+            foreignKeyName: "vendas_forma_pagamento_id_fkey"
+            columns: ["forma_pagamento_id"]
+            isOneToOne: false
+            referencedRelation: "formas_pagamento"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      categorias: {
+        Row: {
+          id: string
+          nome: string
+        }
+        Insert: {
+          id?: string
+          nome: string
+        }
+        Update: {
+          id?: string
+          nome?: string
+        }
         Relationships: []
+      }
+      formas_pagamento: {
+        Row: {
+          id: string
+          nome: string
+        }
+        Insert: {
+          id?: string
+          nome: string
+        }
+        Update: {
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      entregas: {
+        Row: {
+          id: string
+          venda_id: string
+          endereco: string | null
+          telefone: string | null
+          taxa: number | null
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          venda_id: string
+          endereco?: string | null
+          telefone?: string | null
+          taxa?: number | null
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          venda_id?: string
+          endereco?: string | null
+          telefone?: string | null
+          taxa?: number | null
+          criado_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entregas_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usuarios: {
+        Row: {
+          id: string
+          nome: string
+          email: string
+          perfil: string
+          ativo: boolean
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          nome: string
+          email: string
+          perfil: string
+          ativo?: boolean
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          nome?: string
+          email?: string
+          perfil?: string
+          ativo?: boolean
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      solicitacoes_senha: {
+        Row: {
+          id: string
+          usuario_id: string | null
+          email: string
+          status: string
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          usuario_id?: string | null
+          email: string
+          status?: string
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          usuario_id?: string | null
+          email?: string
+          status?: string
+          criado_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitacoes_senha_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      auditoria: {
+        Row: {
+          id: string
+          usuario_id: string
+          usuario_nome: string
+          tipo: string
+          acao: string
+          detalhes: Json
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          usuario_id: string
+          usuario_nome: string
+          tipo: string
+          acao: string
+          detalhes?: Json
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          usuario_id?: string
+          usuario_nome?: string
+          tipo?: string
+          acao?: string
+          detalhes?: Json
+          criado_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "auditoria_usuario_id_fkey"
+            columns: ["usuario_id"]
+            isOneToOne: false
+            referencedRelation: "usuarios"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {

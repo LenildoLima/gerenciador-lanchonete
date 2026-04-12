@@ -9,11 +9,19 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { registrarAuditoria } from "@/lib/auditoria";
+import { useAuth } from "@/hooks/use-auth";
+
+interface Category {
+  id: string;
+  nome: string;
+}
 
 interface Product {
   id: string;
   nome: string;
-  categoria: string;
+  categoria_id: string;
+  categorias?: { nome: string }; // For joined results
   preco: number;
   custo: number;
   estoque: number;
@@ -21,35 +29,57 @@ interface Product {
   ativo: boolean;
 }
 
-const categories = ["Lanches", "Lançamentos", "Éxodo", "Porções", "Sobremesas"];
-
-const emptyProduct = { nome: "", categoria: "Lanches", preco: 0, custo: 0, estoque: 0, estoque_minimo: 5, ativo: true };
+const emptyProduct = { nome: "", categoria_id: "", preco: 0, custo: 0, estoque: 0, estoque_minimo: 5, ativo: true };
 
 export default function Products() {
+  const { usuario } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyProduct);
 
   useEffect(() => {
-    fetchProducts();
+    fetchData();
   }, []);
 
-  async function fetchProducts() {
-    const { data } = await supabase.from("produtos").select("*").order("nome");
-    setProducts((data as Product[]) || []);
+  async function fetchData() {
+    console.log("Iniciando busca de dados...");
+    const [prodRes, catRes] = await Promise.all([
+      supabase.from("produtos").select("*, categorias(nome)").order("nome"),
+      supabase.from("categorias").select("*").order("nome")
+    ]);
+    
+    if (prodRes.error) console.error("Erro produtos:", prodRes.error.message, prodRes.error.details);
+    if (catRes.error) console.error("Erro categorias:", catRes.error.message, catRes.error.details);
+
+    setProducts((prodRes.data as any[]) || []);
+    setCategories((catRes.data as Category[]) || []);
+
+    // Set default category if creating new
+    if (!editing && catRes.data && catRes.data.length > 0 && !form.categoria_id) {
+      setForm(prev => ({ ...prev, categoria_id: catRes.data?.[0].id || "" }));
+    }
   }
 
   function openNew() {
     setEditing(null);
-    setForm(emptyProduct);
+    setForm({ ...emptyProduct, categoria_id: categories[0]?.id || "" });
     setModalOpen(true);
   }
 
   function openEdit(p: Product) {
     setEditing(p);
-    setForm({ nome: p.nome, categoria: p.categoria, preco: p.preco, custo: p.custo, estoque: p.estoque, estoque_minimo: p.estoque_minimo, ativo: p.ativo });
+    setForm({ 
+      nome: p.nome, 
+      categoria_id: p.categoria_id, 
+      preco: p.preco, 
+      custo: p.custo, 
+      estoque: p.estoque, 
+      estoque_minimo: p.estoque_minimo, 
+      ativo: p.ativo 
+    });
     setModalOpen(true);
   }
 
@@ -58,22 +88,90 @@ export default function Products() {
       toast.error("Nome é obrigatório");
       return;
     }
+    if (!form.categoria_id) {
+      toast.error("Categoria é obrigatória");
+      return;
+    }
+
     if (editing) {
-      await supabase.from("produtos").update(form).eq("id", editing.id);
+      const { error } = await supabase.from("produtos").update(form).eq("id", editing.id);
+      if (error) {
+        toast.error("Erro ao atualizar produto");
+        return;
+      }
+
+      if (usuario) {
+        // Find changes
+        const alteracoes: Record<string, any> = {};
+        if (editing.nome !== form.nome) alteracoes.nome = { de: editing.nome, para: form.nome };
+        if (editing.categoria_id !== form.categoria_id) alteracoes.categoria = { para: categories.find(c => c.id === form.categoria_id)?.nome };
+        if (editing.preco !== form.preco) alteracoes.preco = { de: editing.preco, para: form.preco };
+        if (editing.custo !== form.custo) alteracoes.custo = { de: editing.custo, para: form.custo };
+        if (editing.estoque !== form.estoque) alteracoes.estoque = { de: editing.estoque, para: form.estoque };
+        if (editing.ativo !== form.ativo) alteracoes.ativo = { de: editing.ativo, para: form.ativo };
+
+        await registrarAuditoria({
+          usuario_id: usuario.id,
+          usuario_nome: usuario.nome,
+          tipo: "produto",
+          acao: "Produto editado",
+          detalhes: { 
+            nome: form.nome,
+            alteracoes 
+          }
+        });
+      }
+
       toast.success("Produto atualizado!");
     } else {
-      await supabase.from("produtos").insert(form);
+      const { error } = await supabase.from("produtos").insert(form);
+      if (error) {
+        toast.error("Erro ao criar produto");
+        return;
+      }
+
+      if (usuario) {
+        await registrarAuditoria({
+          usuario_id: usuario.id,
+          usuario_nome: usuario.nome,
+          tipo: "produto",
+          acao: "Produto criado",
+          detalhes: {
+            nome: form.nome,
+            categoria: categories.find(c => c.id === form.categoria_id)?.nome,
+            preco: form.preco,
+            estoque: form.estoque
+          }
+        });
+      }
+
       toast.success("Produto criado!");
     }
     setModalOpen(false);
-    fetchProducts();
+    fetchData();
   }
 
   async function handleDelete(id: string) {
     if (!confirm("Deseja excluir este produto?")) return;
-    await supabase.from("produtos").delete().eq("id", id);
+    const p = products.find(x => x.id === id);
+    const { error } = await supabase.from("produtos").delete().eq("id", id);
+    if (error) {
+      toast.error("Erro ao excluir produto. Ele pode estar em alguma venda.");
+      return;
+    }
+
+    if (usuario && p) {
+      await registrarAuditoria({
+        usuario_id: usuario.id,
+        usuario_nome: usuario.nome,
+        tipo: "produto",
+        acao: "Produto excluído",
+        detalhes: { nome: p.nome }
+      });
+    }
+
     toast.success("Produto excluído!");
-    fetchProducts();
+    fetchData();
   }
 
   const filtered = products.filter((p) =>
@@ -107,51 +205,51 @@ export default function Products() {
           <table className="w-full text-sm border-collapse">
             <thead className="sticky top-0 z-20 bg-background/95 backdrop-blur shadow-sm">
               <tr className="border-b border-border">
-              <th className="text-left p-3 font-medium text-muted-foreground">PRODUTO</th>
-              <th className="text-left p-3 font-medium text-muted-foreground">CATEGORIA</th>
-              <th className="text-left p-3 font-medium text-muted-foreground">PREÇO</th>
-              <th className="text-left p-3 font-medium text-muted-foreground">ESTOQUE</th>
-              <th className="text-left p-3 font-medium text-muted-foreground">STATUS</th>
-              <th className="text-right p-3 font-medium text-muted-foreground">AÇÕES</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p) => (
-              <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                <td className="p-3 font-medium">{p.nome}</td>
-                <td className="p-3 text-muted-foreground">{p.categoria}</td>
-                <td className="p-3">{formatCurrency(p.preco)}</td>
-                <td className="p-3">
-                  <span className={p.estoque < p.estoque_minimo ? "text-destructive font-bold" : ""}>
-                    {p.estoque}
-                  </span>
-                </td>
-                <td className="p-3">
-                  <span className={p.ativo ? "badge-active" : "badge-inactive"}>
-                    {p.ativo ? "Ativo" : "Inativo"}
-                  </span>
-                </td>
-                <td className="p-3 text-right">
-                  <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-muted rounded-md mr-1">
-                    <Pencil className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                  <button onClick={() => handleDelete(p.id)} className="p-1.5 hover:bg-destructive/10 rounded-md">
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </button>
-                </td>
+                <th className="text-left p-3 font-medium text-muted-foreground">PRODUTO</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">CATEGORIA</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">PREÇO</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">ESTOQUE</th>
+                <th className="text-left p-3 font-medium text-muted-foreground">STATUS</th>
+                <th className="text-right p-3 font-medium text-muted-foreground">AÇÕES</th>
               </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="p-8 text-center text-muted-foreground">
-                  Nenhum produto encontrado
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                  <td className="p-3 font-medium">{p.nome}</td>
+                  <td className="p-3 text-muted-foreground">{p.categorias?.nome || '-'}</td>
+                  <td className="p-3">{formatCurrency(p.preco)}</td>
+                  <td className="p-3">
+                    <span className={p.estoque < p.estoque_minimo ? "text-destructive font-bold" : ""}>
+                      {p.estoque}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span className={p.ativo ? "badge-active" : "badge-inactive"}>
+                      {p.ativo ? "Ativo" : "Inativo"}
+                    </span>
+                  </td>
+                  <td className="p-3 text-right">
+                    <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-muted rounded-md mr-1">
+                      <Pencil className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                    <button onClick={() => handleDelete(p.id)} className="p-1.5 hover:bg-destructive/10 rounded-md">
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                    Nenhum produto encontrado
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
 
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="sm:max-w-md">
@@ -165,11 +263,11 @@ export default function Products() {
             </div>
             <div>
               <Label>Categoria</Label>
-              <Select value={form.categoria} onValueChange={(v) => setForm({ ...form, categoria: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select value={form.categoria_id} onValueChange={(v) => setForm({ ...form, categoria_id: v })}>
+                <SelectTrigger><SelectValue placeholder="Selecione uma categoria" /></SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

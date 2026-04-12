@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatTime } from "@/lib/format";
-import { ShoppingCart, DollarSign, Package, AlertTriangle, Receipt, TrendingUp, PiggyBank } from "lucide-react";
+import { ShoppingCart, DollarSign, Package, AlertTriangle, Receipt, TrendingUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 interface Product {
   id: string;
   nome: string;
-  categoria: string;
+  categoria_id: string;
+  categorias?: { nome: string };
   ativo: boolean;
   estoque: number;
   estoque_minimo: number;
@@ -16,9 +17,14 @@ interface Product {
 interface Sale {
   id: string;
   criado_em: string;
-  forma_pagamento: string;
+  forma_pagamento_id: string;
+  formas_pagamento?: { nome: string };
   total: number;
   situacao: string;
+  entregas?: {
+    taxa_entrega: number;
+    tipo_pedido: string;
+  }[];
 }
 
 interface SaleWithItems extends Sale {
@@ -73,24 +79,21 @@ export default function Dashboard() {
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     sevenDaysAgo.setHours(0, 0, 0, 0);
 
-    // Get the earliest between 1st day of month and 7 days ago to ensure chart and monthly total both work
     const minDate = firstDayMonth < sevenDaysAgo ? firstDayMonth : sevenDaysAgo;
 
     const [productsRes, allNeededSalesRes, todaySalesRes] = await Promise.all([
-      supabase.from("produtos").select("*"),
-      supabase.from("vendas").select("*").gte("criado_em", minDate.toISOString()).eq("situacao", "Concluída"),
-      supabase.from("vendas").select("*").gte("criado_em", today.toISOString()).eq("situacao", "Concluída"),
+      supabase.from("produtos").select("*, categorias(nome)"),
+      supabase.from("vendas").select("*, formas_pagamento(nome), entregas(*)").gte("criado_em", minDate.toISOString()).eq("situacao", "Concluída"),
+      supabase.from("vendas").select("*, formas_pagamento(nome), entregas(*)").gte("criado_em", today.toISOString()).eq("situacao", "Concluída"),
     ]);
 
-    const salesList = (allNeededSalesRes.data as Sale[]) || [];
-    setProducts((productsRes.data as Product[]) || []);
+    const salesList = (allNeededSalesRes.data as any[]) || [];
+    setProducts((productsRes.data as any[]) || []);
     
-    // Monthly sales filter
     const monthlySales = salesList.filter(s => new Date(s.criado_em) >= firstDayMonth);
     setAllSales(monthlySales);
 
-    // Get item counts and calculate most sold for today's sales
-    const todayData = (todaySalesRes.data as Sale[]) || [];
+    const todayData = (todaySalesRes.data as any[]) || [];
     const salesWithItems: SaleWithItems[] = [];
     const itemsCount: Record<string, { nome: string; qtd: number }> = {};
 
@@ -103,7 +106,6 @@ export default function Dashboard() {
       const itemList = (items as ItemVenda[]) || [];
       salesWithItems.push({ ...sale, itemCount: itemList.length });
 
-      // Count most sold
       for (const item of itemList) {
         if (!itemsCount[item.produto_id]) {
           itemsCount[item.produto_id] = { nome: item.nome_produto, qtd: 0 };
@@ -114,11 +116,9 @@ export default function Dashboard() {
 
     setTodaySales(salesWithItems);
 
-    // Find most sold
     const sortedItems = Object.values(itemsCount).sort((a, b) => b.qtd - a.qtd);
     setMostSoldProduct(sortedItems[0] || null);
 
-    // Chart data - last 7 days
     const days = [];
     const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     for (let i = 6; i >= 0; i--) {
@@ -152,7 +152,6 @@ export default function Dashboard() {
         <p className="text-muted-foreground text-sm">Visão geral da lanchonete</p>
       </div>
 
-      {/* Metric cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card-metric flex items-start justify-between">
           <div>
@@ -223,7 +222,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Chart */}
       <div className="card-metric">
         <h2 className="font-semibold text-foreground mb-4">Vendas nos últimos 7 dias</h2>
         <div className="h-64">
@@ -242,7 +240,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Bottom cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="card-metric">
           <div className="flex items-center gap-2 mb-4">
@@ -257,7 +254,7 @@ export default function Dashboard() {
                 <div key={p.id} className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium">{p.nome}</p>
-                    <p className="text-xs text-muted-foreground">{p.categoria}</p>
+                    <p className="text-xs text-muted-foreground">{p.categorias?.nome || 'Geral'}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-destructive">{p.estoque}</p>
@@ -281,8 +278,8 @@ export default function Dashboard() {
               {todaySales.map((s) => (
                 <div key={s.id} className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <p className="text-sm text-muted-foreground">{s.itemCount} itens</p>
-                    <p className="text-xs text-muted-foreground">{s.forma_pagamento}</p>
+                    <p className="text-sm text-muted-foreground">{s.itemCount} {s.itemCount === 1 ? 'item' : 'itens'}</p>
+                    <p className="text-xs text-muted-foreground">{s.formas_pagamento?.nome || '-'}</p>
                   </div>
                   <div className="flex items-center gap-3">
                     <p className="text-sm font-bold text-primary">{formatCurrency(Number(s.total))}</p>

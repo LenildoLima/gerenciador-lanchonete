@@ -5,17 +5,26 @@ import { Search, Eye, Ban } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { registrarAuditoria } from "@/lib/auditoria";
+import { useAuth } from "@/hooks/use-auth";
 
 interface Venda {
   id: string;
   criado_em: string;
-  forma_pagamento: string;
+  forma_pagamento_id: string;
+  formas_pagamento?: { nome: string };
   nome_cliente: string | null;
+  cliente_id: string | null;
+  clientes?: { nome: string; telefone: string | null } | null;
   observacoes: string | null;
   total: number;
   situacao: string;
-  taxa_entrega?: number;
-  tipo_pedido?: string;
+  entregas?: {
+    taxa: number;
+    tipo_pedido?: string;
+    endereco: string;
+    telefone: string;
+  }[];
 }
 
 interface ItemVenda {
@@ -23,7 +32,6 @@ interface ItemVenda {
   nome_produto: string;
   quantidade: number;
   preco_unitario: number;
-  subtotal: number;
 }
 
 interface VendaComContagem extends Venda {
@@ -31,6 +39,7 @@ interface VendaComContagem extends Venda {
 }
 
 export default function Vendas() {
+  const { usuario } = useAuth();
   const [vendas, setVendas] = useState<VendaComContagem[]>([]);
   const [search, setSearch] = useState("");
   const [detalheVenda, setDetalheVenda] = useState<Venda | null>(null);
@@ -42,8 +51,18 @@ export default function Vendas() {
   }, []);
 
   async function fetchVendas() {
-    const { data } = await supabase.from("vendas").select("*").order("criado_em", { ascending: false });
-    const vendasData = (data as Venda[]) || [];
+    const { data } = await supabase
+      .from("vendas")
+      .select(`
+        *,
+        formas_pagamento(nome),
+        clientes(nome, telefone),
+        entregas(*)
+      `)
+      .order("criado_em", { ascending: false });
+      
+    const vendasData = (data as any[]) || [];
+    console.log("Vendas carregadas:", vendasData);
 
     const withCounts: VendaComContagem[] = [];
     for (const venda of vendasData) {
@@ -64,16 +83,41 @@ export default function Vendas() {
 
   async function cancelVenda(id: string) {
     if (!confirm("Deseja cancelar esta venda? O estoque NÃO será estornado.")) return;
-    await supabase.from("vendas").update({ situacao: "Cancelada" }).eq("id", id);
+    const { error } = await supabase.from("vendas").update({ situacao: "Cancelada" }).eq("id", id);
+    if (error) {
+      toast.error("Erro ao cancelar venda");
+      return;
+    }
+
+    const v = vendas.find(x => x.id === id);
+    if (usuario && v) {
+      await registrarAuditoria({
+        usuario_id: usuario.id,
+        usuario_nome: usuario.nome,
+        tipo: "venda",
+        acao: "Venda cancelada",
+        detalhes: { venda_id: id, total: v.total }
+      });
+
+      await registrarAuditoria({
+        usuario_id: usuario.id,
+        usuario_nome: usuario.nome,
+        tipo: "estoque",
+        acao: "Estorno de estoque (cancelamento)",
+        detalhes: { venda_id: id }
+      });
+    }
+
     toast.success("Venda cancelada");
     fetchVendas();
   }
 
   const filtered = vendas.filter((v) => {
     const term = search.toLowerCase();
+    const formaPgto = v.formas_pagamento?.nome?.toLowerCase() || "";
     const matchesSearch = (
       v.nome_cliente?.toLowerCase().includes(term) ||
-      v.forma_pagamento.toLowerCase().includes(term) ||
+      formaPgto.includes(term) ||
       formatDateTime(v.criado_em).includes(term)
     );
 
@@ -100,14 +144,13 @@ export default function Vendas() {
   });
 
   const totals = filtered.reduce((acc, v) => {
-    const taxa = Number(v.taxa_entrega || 0);
-    const total = Number(v.total);
-    const venda = total - taxa;
+    const taxa = Number(v.entregas?.[0]?.taxa || 0);
+    const subtotalItens = Number(v.total);
     
     return {
-      venda: acc.venda + venda,
+      venda: acc.venda + subtotalItens,
       taxa: acc.taxa + taxa,
-      total: acc.total + total
+      total: acc.total + subtotalItens + taxa
     };
   }, { venda: 0, taxa: 0, total: 0 });
 
@@ -158,17 +201,19 @@ export default function Vendas() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((v) => (
+            {filtered.map((v) => {
+              const taxa = v.entregas?.[0]?.taxa || 0;
+              return (
               <tr key={v.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                 <td className="p-3">{formatDateTime(v.criado_em)}</td>
                 <td className="p-3 text-muted-foreground">{v.itemCount} itens</td>
-                <td className="p-3">{v.forma_pagamento}</td>
-                <td className="p-3 text-muted-foreground">{v.nome_cliente || "-"}</td>
-                <td className="p-3">{formatCurrency(Number(v.total) - Number(v.taxa_entrega || 0))}</td>
+                <td className="p-3">{v.formas_pagamento?.nome || '-'}</td>
+                <td className="p-3 text-muted-foreground">{v.clientes?.nome || v.nome_cliente || "-"}</td>
+                <td className="p-3">{formatCurrency(Number(v.total))}</td>
                 <td className="p-3 text-muted-foreground">
-                  {v.taxa_entrega && v.taxa_entrega > 0 ? formatCurrency(Number(v.taxa_entrega)) : "-"}
+                  {taxa > 0 ? formatCurrency(taxa) : "-"}
                 </td>
-                <td className="p-3 font-bold text-primary">{formatCurrency(Number(v.total))}</td>
+                <td className="p-3 font-bold text-primary">{formatCurrency(Number(v.total) + taxa)}</td>
                 <td className="p-3">
                   <span className={v.situacao === "Concluída" ? "badge-completed" : "badge-cancelled"}>
                     {v.situacao}
@@ -185,7 +230,8 @@ export default function Vendas() {
                   )}
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={9} className="p-8 text-center text-muted-foreground">
@@ -218,31 +264,32 @@ export default function Vendas() {
             <div className="space-y-4">
               <div className="text-sm space-y-1">
                 <p><span className="text-muted-foreground">Data:</span> {formatDateTime(detalheVenda.criado_em)}</p>
-                <p><span className="text-muted-foreground">Pagamento:</span> {detalheVenda.forma_pagamento}</p>
-                <p><span className="text-muted-foreground">Cliente:</span> {detalheVenda.nome_cliente || "-"}</p>
-                {detalheVenda.tipo_pedido && <p><span className="text-muted-foreground">Tipo:</span> {detalheVenda.tipo_pedido}</p>}
+                <p><span className="text-muted-foreground">Pagamento:</span> {detalheVenda.formas_pagamento?.nome || '-'}</p>
+                <p><span className="text-muted-foreground">Cliente:</span> {detalheVenda.clientes?.nome || detalheVenda.nome_cliente || "-"}</p>
+                {detalheVenda.clientes?.telefone && <p><span className="text-muted-foreground">Telefone:</span> {detalheVenda.clientes.telefone}</p>}
+                {detalheVenda.entregas?.[0]?.endereco && <p><span className="text-muted-foreground">Endereço:</span> {detalheVenda.entregas[0].endereco}</p>}
                 {detalheVenda.observacoes && <p><span className="text-muted-foreground">Obs:</span> {detalheVenda.observacoes}</p>}
               </div>
               <div className="border-t border-border pt-3 space-y-2">
                 {detalheItens.map((i) => (
                   <div key={i.id} className="flex justify-between text-sm">
                     <span>{i.quantidade}x {i.nome_produto}</span>
-                    <span>{formatCurrency(i.subtotal)}</span>
+                    <span>{formatCurrency(i.quantidade * i.preco_unitario)}</span>
                   </div>
                 ))}
                   <div className="flex justify-between text-sm font-medium pt-1">
-                    <span>Subtotal</span>
-                    <span>{formatCurrency(Number(detalheVenda.total) - (detalheVenda.taxa_entrega || 0))}</span>
+                    <span>Subtotal (Itens)</span>
+                    <span>{formatCurrency(Number(detalheVenda.total))}</span>
                   </div>
-                  {detalheVenda.taxa_entrega && detalheVenda.taxa_entrega > 0 && (
+                  {detalheVenda.entregas?.[0]?.taxa && detalheVenda.entregas[0].taxa > 0 && (
                     <div className="flex justify-between text-sm text-primary">
                       <span>Taxa de Entrega</span>
-                      <span>+ {formatCurrency(detalheVenda.taxa_entrega)}</span>
+                      <span>+ {formatCurrency(detalheVenda.entregas[0].taxa)}</span>
                     </div>
                   )}
                   <div className="border-t border-border pt-2 flex justify-between font-bold text-lg">
-                    <span>Total</span>
-                    <span className="text-primary">{formatCurrency(Number(detalheVenda.total))}</span>
+                    <span>Total Geral</span>
+                    <span className="text-primary">{formatCurrency(Number(detalheVenda.total) + (detalheVenda.entregas?.[0]?.taxa || 0))}</span>
                   </div>
               </div>
             </div>

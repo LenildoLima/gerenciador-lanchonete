@@ -1,19 +1,29 @@
-import { LayoutDashboard, Package, ShoppingCart, ClipboardList, Menu, X } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, ClipboardList, Menu, X, Users, LogOut, UserCircle, Activity } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/use-auth";
 
-const items = [
-  { title: "Painel", url: "/", icon: LayoutDashboard },
-  { title: "Produtos", url: "/produtos", icon: Package },
-  { title: "Nova Venda", url: "/nova-venda", icon: ShoppingCart },
-  { title: "Vendas", url: "/vendas", icon: ClipboardList },
+const todosItems = [
+  { title: "Painel", url: "/", icon: LayoutDashboard, perfis: ["admin"] },
+  { title: "Produtos", url: "/produtos", icon: Package, perfis: ["admin"] },
+  { title: "Nova Venda", url: "/nova-venda", icon: ShoppingCart, perfis: ["admin", "atendente"] },
+  { title: "Vendas", url: "/vendas", icon: ClipboardList, perfis: ["admin", "atendente"] },
+  { title: "Usuários", url: "/usuarios", icon: Users, perfis: ["admin"] },
+  { title: "Auditoria", url: "/auditoria", icon: Activity, perfis: ["admin"] },
 ];
 
 export function Navbar() {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
+  const { usuario, logout } = useAuth();
+
+  const items = todosItems.filter(
+    (item) => !usuario || item.perfis.includes(usuario.perfil)
+  );
+
+  const primeiroNome = usuario?.nome?.split(" ")[0] ?? "";
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -51,6 +61,69 @@ export function Navbar() {
             })}
           </div>
 
+          {/* Usuário + Sair (desktop) */}
+          {usuario && (
+            <div className="hidden md:flex items-center gap-3">
+              <Link 
+                to="/perfil" 
+                title="Meu perfil"
+                style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "0.6rem", 
+                  textDecoration: "none",
+                  padding: "0.4rem 0.8rem",
+                  borderRadius: "0.6rem",
+                  border: "1px solid #f3f4f6",
+                  background: "#f9fafb",
+                  transition: "all 0.2s"
+                }} 
+                className="hover:bg-gray-100 hover:border-gray-200"
+              >
+                <UserCircle size={28} color="#ea580c" strokeWidth={1.5} />
+                <div style={{ textAlign: "left" }}>
+                  <p style={{ fontSize: "0.85rem", fontWeight: 700, color: "#111827", lineHeight: 1.1 }}>
+                    {primeiroNome}
+                  </p>
+                  <p style={{ fontSize: "0.7rem", color: "#6b7280", marginTop: "0.1rem", fontWeight: 500 }}>
+                    Ver perfil
+                  </p>
+                </div>
+              </Link>
+              <button
+                onClick={logout}
+                title="Sair"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.35rem",
+                  padding: "0.45rem 0.9rem",
+                  borderRadius: "0.6rem",
+                  border: "1.5px solid #e5e7eb",
+                  background: "#fff",
+                  color: "#6b7280",
+                  fontWeight: 600,
+                  fontSize: "0.82rem",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "#fef2f2";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "#fecaca";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#dc2626";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "#fff";
+                  (e.currentTarget as HTMLButtonElement).style.borderColor = "#e5e7eb";
+                  (e.currentTarget as HTMLButtonElement).style.color = "#6b7280";
+                }}
+              >
+                <LogOut size={15} />
+                Sair
+              </button>
+            </div>
+          )}
+
           {/* Mobile Menu Button */}
           <div className="md:hidden">
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)}>
@@ -81,6 +154,27 @@ export function Navbar() {
                 </NavLink>
               );
             })}
+            {/* Perfil e Sair mobile */}
+            {usuario && (
+              <>
+                <Link
+                  to="/perfil"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center px-4 py-3 text-sm font-medium rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                  style={{ textDecoration: "none" }}
+                >
+                  <UserCircle className="w-5 h-5 mr-3" />
+                  Meu Perfil
+                </Link>
+                <button
+                  onClick={() => { setIsOpen(false); logout(); }}
+                  className="flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg text-red-500 hover:bg-red-50 transition-colors"
+                >
+                  <LogOut className="w-5 h-5 mr-3" />
+                  Sair
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>

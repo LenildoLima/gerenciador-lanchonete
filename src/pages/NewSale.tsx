@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, getCategoriaBadgeClass } from "@/lib/format";
-import { Search, ShoppingCart, Plus, Minus, X } from "lucide-react";
+import { Search, ShoppingCart, Plus, Minus, X, UserPlus, Check, Printer } from "lucide-react";
+import { registrarAuditoria } from "@/lib/auditoria";
+import { useAuth } from "@/hooks/use-auth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -12,138 +14,400 @@ import { toast } from "sonner";
 interface Product {
   id: string;
   nome: string;
-  categoria: string;
+  categoria_id: string;
+  categorias?: { nome: string };
   preco: number;
   estoque: number;
   ativo: boolean;
 }
+interface Category { id: string; nome: string; }
+interface PaymentMethod { id: string; nome: string; }
+interface Cliente { id: string; nome: string; telefone: string | null; endereco: string | null; complemento: string | null; }
+interface CartItem { product: Product; quantity: number; }
 
-interface CartItem {
-  product: Product;
-  quantity: number;
+interface ReceiptData {
+  orderType: "Local" | "Entrega";
+  identification: string;
+  cart: CartItem[];
+  subtotal: number;
+  deliveryFee: number;
+  totalGeral: number;
+  paymentName: string;
+  notes: string;
+  trocoValor: string;
+  noTroco: boolean;
+  isDinheiro: boolean;
+  clienteNome: string;
+  clienteTelefone: string;
+  clienteEndereco: string;
+  clienteComplemento: string;
+  dataHora: string;
 }
 
-const allCategories = ["Todos", "Lanches", "Lançamentos", "Éxodo", "Porções", "Sobremesas"];
-const paymentMethods = ["Dinheiro", "PIX", "Crédito", "Débito"];
+// ======= CSS PRINT STYLE =======
+const printStyle = `
+@media print {
+  body * { visibility: hidden !important; }
+  #receipt-content, #receipt-content * { visibility: visible !important; }
+  #receipt-content { position: fixed; left: 0; top: 0; width: 80mm; font-family: monospace !important; font-size: 12px !important; }
+  @page { margin: 4mm; size: 80mm auto; }
+}
+`;
+
+// ======= RECEIPT COMPONENT =======
+function Receipt({ data }: { data: ReceiptData }) {
+  const sep = "─".repeat(32);
+  const sepScissors = "- - - - - - - - - - - ✂ - - - - - - - - - - -";
+
+  if (data.orderType === "Local") {
+    return (
+      <div id="receipt-content" style={{ fontFamily: "monospace", fontSize: 12, width: "100%", maxWidth: 300, padding: "8px 0" }}>
+        <div style={{ textAlign: "center", fontWeight: "bold" }}>LaunchApp</div>
+        <div style={{ textAlign: "center", fontSize: 10 }}>Gestão de Lanchonete</div>
+        <div style={{ textAlign: "center", fontSize: 10 }}>{data.dataHora}</div>
+        <div>{sep}</div>
+        <div style={{ textAlign: "center", fontWeight: "bold", fontSize: 14, letterSpacing: 2 }}>COMANDA</div>
+        {data.identification && (
+          <div style={{ textAlign: "center", fontSize: 13, fontWeight: "bold" }}>▶ {data.identification} ◀</div>
+        )}
+        <div>{sep}</div>
+        {data.cart.map((i, idx) => {
+          const val = formatCurrency(i.product.preco * i.quantity);
+          const label = `${i.quantity}x ${i.product.nome}`;
+          const spaces = Math.max(1, 32 - label.length - val.length);
+          return <div key={idx}>{label}{" ".repeat(spaces)}{val}</div>;
+        })}
+        <div>{sep}</div>
+        <div style={{ fontWeight: "bold" }}>{"TOTAL"}{" ".repeat(32 - 5 - formatCurrency(data.totalGeral).length)}{formatCurrency(data.totalGeral)}</div>
+        <div>{sep}</div>
+        <div>Pagamento: {data.paymentName}</div>
+        {data.notes && <><div>{sep}</div><div style={{ fontSize: 11 }}>Obs: {data.notes}</div></>}
+        <div>{sep}</div>
+        <div style={{ textAlign: "center" }}>Bom apetite! 🍔</div>
+      </div>
+    );
+  }
+
+  // Entrega — 2 vias
+  const trocoNum = !data.noTroco && data.isDinheiro && data.trocoValor ? parseFloat(data.trocoValor) : null;
+  const trocoVal = trocoNum !== null ? trocoNum - data.totalGeral : null;
+
+  return (
+    <div id="receipt-content" style={{ fontFamily: "monospace", fontSize: 12, width: "100%", maxWidth: 300, padding: "8px 0" }}>
+      {/* VIA 1 - COZINHA */}
+      <div style={{ textAlign: "center", fontWeight: "bold" }}>LaunchApp</div>
+      <div style={{ textAlign: "center", fontSize: 10 }}>Gestão de Lanchonete</div>
+      <div style={{ textAlign: "center", fontSize: 10 }}>{data.dataHora}</div>
+      <div>{sep}</div>
+      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: 13, letterSpacing: 1 }}>PEDIDO DELIVERY - COZINHA</div>
+      <div>{sep}</div>
+      {data.cart.map((i, idx) => (
+        <div key={idx} style={{ fontWeight: "bold" }}>{i.quantity}x {i.product.nome}</div>
+      ))}
+      {data.notes && <><div>{sep}</div><div style={{ fontSize: 11 }}>Obs: {data.notes}</div></>}
+      <div style={{ marginTop: 8 }}></div>
+
+      {/* SEPARADOR TESOURA */}
+      <div style={{ textAlign: "center", fontSize: 10, margin: "6px 0" }}>{sepScissors}</div>
+
+      {/* VIA 2 - ENTREGADOR */}
+      <div style={{ textAlign: "center", fontWeight: "bold" }}>LaunchApp</div>
+      <div style={{ textAlign: "center", fontSize: 10 }}>Gestão de Lanchonete</div>
+      <div style={{ textAlign: "center", fontSize: 10 }}>{data.dataHora}</div>
+      <div>{sep}</div>
+      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: 13, letterSpacing: 1 }}>PEDIDO DELIVERY - ENTREGA</div>
+      <div>{sep}</div>
+      <div style={{ fontWeight: "bold" }}>{data.clienteNome}</div>
+      {data.clienteTelefone && <div>Tel: {data.clienteTelefone}</div>}
+      {data.clienteEndereco && <div>End: {data.clienteEndereco}</div>}
+      {data.clienteComplemento && <div>Comp: {data.clienteComplemento}</div>}
+      <div>{sep}</div>
+      {data.cart.map((i, idx) => {
+        const val = formatCurrency(i.product.preco * i.quantity);
+        const label = `${i.quantity}x ${i.product.nome}`;
+        const spaces = Math.max(1, 32 - label.length - val.length);
+        return <div key={idx}>{label}{" ".repeat(spaces)}{val}</div>;
+      })}
+      <div>{sep}</div>
+      <div>{"Subtotal"}{" ".repeat(32 - 8 - formatCurrency(data.subtotal).length)}{formatCurrency(data.subtotal)}</div>
+      <div>{"Taxa entrega"}{" ".repeat(32 - 12 - formatCurrency(data.deliveryFee).length)}{formatCurrency(data.deliveryFee)}</div>
+      <div style={{ fontWeight: "bold" }}>{"TOTAL"}{" ".repeat(32 - 5 - formatCurrency(data.totalGeral).length)}{formatCurrency(data.totalGeral)}</div>
+      <div>{sep}</div>
+      <div>Pagamento: {data.paymentName}</div>
+      {data.isDinheiro && !data.noTroco && trocoNum !== null && (
+        <>
+          <div>Troco para: {formatCurrency(trocoNum)}</div>
+          {trocoVal !== null && trocoVal >= 0 && <div>Troco: {formatCurrency(trocoVal)}</div>}
+        </>
+      )}
+      {data.notes && <><div>{sep}</div><div style={{ fontSize: 11 }}>Obs: {data.notes}</div></>}
+      <div>{sep}</div>
+      <div style={{ textAlign: "center" }}>Bom apetite! 🛵</div>
+    </div>
+  );
+}
 
 export default function NewSale() {
+  const { usuario } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("Todos");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("Todos");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("");
-  const [customerName, setCustomerName] = useState("");
+  const [step, setStep] = useState(1);
+
+  const [orderType, setOrderType] = useState<"Local" | "Entrega">("Local");
+  const [identification, setIdentification] = useState("");
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [address, setAddress] = useState("");
+  const [complement, setComplement] = useState("");
+  const [phone, setPhone] = useState("");
+
+  const [clientQuery, setClientQuery] = useState("");
+  const [clientSuggestions, setClientSuggestions] = useState<Cliente[]>([]);
+  const [selectedClient, setSelectedClient] = useState<Cliente | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearchingClient, setIsSearchingClient] = useState(false);
+  const clientSearchRef = useRef<HTMLDivElement>(null);
+
+  const [showNewClientForm, setShowNewClientForm] = useState(false);
+  const [newClientNome, setNewClientNome] = useState("");
+  const [newClientTelefone, setNewClientTelefone] = useState("");
+  const [newClientEndereco, setNewClientEndereco] = useState("");
+  const [newClientComplemento, setNewClientComplemento] = useState("");
+  const [isSavingClient, setIsSavingClient] = useState(false);
+
+  const [paymentMethodId, setPaymentMethodId] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [step, setStep] = useState(1);
-  const [orderType, setOrderType] = useState<"Local" | "Entrega">("Local");
-  const [address, setAddress] = useState("");
-  const [phone, setPhone] = useState("");
-  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [trocoValor, setTrocoValor] = useState("");
+  const [noTroco, setNoTroco] = useState(false);
+
+  // Receipt
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   useEffect(() => {
-    fetchProducts();
+    fetchInitialData();
+    const handleClick = (e: MouseEvent) => {
+      if (clientSearchRef.current && !clientSearchRef.current.contains(e.target as Node)) setShowSuggestions(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  async function fetchProducts() {
-    const { data } = await supabase.from("produtos").select("*").eq("ativo", true).order("nome");
-    setProducts((data as Product[]) || []);
+  async function fetchInitialData() {
+    const [prodRes, catRes, payRes] = await Promise.all([
+      supabase.from("produtos").select("*, categorias(nome)").eq("ativo", true).order("nome"),
+      supabase.from("categorias").select("*").order("nome"),
+      supabase.from("formas_pagamento").select("*").order("nome"),
+    ]);
+    setProducts((prodRes.data as any[]) || []);
+    setCategories((catRes.data as Category[]) || []);
+    setPaymentMethods((payRes.data as PaymentMethod[]) || []);
+  }
+
+  useEffect(() => {
+    if (clientQuery.length < 2) { setClientSuggestions([]); setShowSuggestions(false); return; }
+    const timer = setTimeout(async () => {
+      setIsSearchingClient(true);
+      const { data } = await supabase.from("clientes").select("id, nome, telefone, endereco, complemento")
+        .or(`nome.ilike.%${clientQuery}%,telefone.ilike.%${clientQuery}%`).limit(6);
+      setClientSuggestions((data as Cliente[]) || []);
+      setShowSuggestions(true);
+      setIsSearchingClient(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [clientQuery]);
+
+  function selectClient(client: Cliente) {
+    setSelectedClient(client);
+    setClientQuery(client.nome);
+    setPhone(client.telefone || "");
+    setAddress(client.endereco || "");
+    setComplement(client.complemento || "");
+    setShowSuggestions(false);
+    setShowNewClientForm(false);
+  }
+
+  function clearClient() {
+    setSelectedClient(null);
+    setClientQuery("");
+    setPhone("");
+    setAddress("");
+    setComplement("");
+  }
+
+  async function handleSaveNewClient() {
+    if (!newClientNome.trim()) { toast.error("Nome do cliente é obrigatório"); return; }
+    setIsSavingClient(true);
+    const { data, error } = await supabase.from("clientes")
+      .insert({ nome: newClientNome.trim(), telefone: newClientTelefone || null, endereco: newClientEndereco || null, complemento: newClientComplemento || null })
+      .select().single();
+    setIsSavingClient(false);
+    if (error) { toast.error("Erro ao cadastrar cliente"); return; }
+    toast.success("Cliente cadastrado!");
+    selectClient(data as Cliente);
+    setShowNewClientForm(false);
+    setNewClientNome(""); setNewClientTelefone(""); setNewClientEndereco(""); setNewClientComplemento("");
   }
 
   function addToCart(product: Product) {
     setCart((prev) => {
       const existing = prev.find((i) => i.product.id === product.id);
-      if (existing) {
-        return prev.map((i) =>
-          i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
-        );
-      }
+      if (existing) return prev.map((i) => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
       return [...prev, { product, quantity: 1 }];
     });
   }
 
   function updateQuantity(productId: string, delta: number) {
-    setCart((prev) =>
-      prev
-        .map((i) => {
-          if (i.product.id === productId) {
-            return { ...i, quantity: i.quantity + delta };
-          }
-          return i;
-        })
-        .filter((i) => i.quantity > 0)
-    );
+    setCart((prev) => prev.map((i) => i.product.id === productId ? { ...i, quantity: i.quantity + delta } : i).filter((i) => i.quantity > 0));
   }
 
   function removeFromCart(productId: string) {
     setCart((prev) => prev.filter((i) => i.product.id !== productId));
   }
 
-  const total = cart.reduce((s, i) => s + i.product.preco * i.quantity, 0);
+  const subtotal = cart.reduce((s, i) => s + i.product.preco * i.quantity, 0);
+  const totalGeral = subtotal + (orderType === "Entrega" ? deliveryFee : 0);
 
   const filtered = products.filter((p) => {
     const matchSearch = p.nome.toLowerCase().includes(search.toLowerCase());
-    const matchCategory = category === "Todos" || p.categoria === category;
+    const matchCategory = selectedCategoryId === "Todos" || p.categoria_id === selectedCategoryId;
     return matchSearch && matchCategory;
   });
 
-  async function handleConfirmSale() {
-    if (!paymentMethod) {
-      toast.error("Selecione a forma de pagamento");
-      return;
-    }
+  function resetAll() {
+    setCart([]); setStep(1); setOrderType("Local"); setIdentification(""); setDeliveryFee(0);
+    setAddress(""); setComplement(""); setPhone(""); clearClient();
+    setPaymentMethodId(""); setNotes(""); setTrocoValor(""); setNoTroco(false);
+  }
 
+  async function handleConfirmSale() {
+    if (!paymentMethodId) { toast.error("Selecione a forma de pagamento"); return; }
     setIsSubmitting(true);
     try {
-      const { error } = await supabase.rpc("realizar_venda", {
-        p_itens: cart.map((i) => ({
-          produto_id: i.product.id,
-          quantidade: i.quantity,
-        })),
-        p_pagamento: paymentMethod,
-        p_observacao: notes || "",
-        p_cliente: customerName || "",
+      const nomeCliente = orderType === "Entrega" ? (selectedClient?.nome || "") : (identification || "");
+      const paymentMethod = paymentMethods.find(m => m.id === paymentMethodId);
+      const isDinheiro = paymentMethod?.nome?.toLowerCase().includes("dinheiro") ?? false;
+      const trocoInfo = (orderType === "Entrega" && isDinheiro && !noTroco && trocoValor)
+        ? `Troco para R$ ${parseFloat(trocoValor).toFixed(2).replace(".", ",")}` : "";
+      const obsCompleta = [trocoInfo, notes].filter(Boolean).join(" | ");
+
+      const { error } = await (supabase as any).rpc("realizar_venda", {
+        p_itens: cart.map((i: any) => ({ produto_id: i.product.id, quantidade: i.quantity, preco_unitario: i.product.preco })),
+        p_pagamento_id: paymentMethodId,
+        p_observacao: obsCompleta || "",
+        p_cliente: nomeCliente,
+        p_cliente_id: selectedClient?.id || null,
         p_tipo_pedido: orderType,
         p_endereco: orderType === "Entrega" ? address : "",
         p_telefone: orderType === "Entrega" ? phone : "",
-        p_taxa_entrega: orderType === "Entrega" ? Number(deliveryFee) : 0,
+        p_taxa_entrega: orderType === "Entrega" ? parseFloat(deliveryFee.toString()) : 0,
       });
 
-      if (error) {
-        toast.error(error.message || "Erro ao realizar venda");
-        return;
+      if (error) { toast.error(error.message || "Erro ao realizar venda"); return; }
+
+      // Prepare receipt
+      const now = new Date();
+      const dataHora = now.toLocaleDateString("pt-BR") + " " + now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      setReceiptData({
+        orderType,
+        identification,
+        cart: [...cart],
+        subtotal,
+        deliveryFee,
+        totalGeral,
+        paymentName: paymentMethod?.nome || "",
+        notes: obsCompleta,
+        trocoValor,
+        noTroco,
+        isDinheiro,
+        clienteNome: selectedClient?.nome || "",
+        clienteTelefone: phone,
+        clienteEndereco: address,
+        clienteComplemento: complement,
+        dataHora,
+      });
+
+      if (usuario) {
+        // Log principal da Venda
+        await registrarAuditoria({
+          usuario_id: usuario.id,
+          usuario_nome: usuario.nome,
+          tipo: "venda",
+          acao: "Venda realizada",
+          detalhes: {
+            total: totalGeral,
+            tipo_pedido: orderType,
+            cliente_nome: nomeCliente,
+            forma_pagamento: paymentMethod?.nome,
+            quantidade_itens: cart.length
+          }
+        });
+
+        // Log de Estoque (para o filtro de estoque)
+        await registrarAuditoria({
+          usuario_id: usuario.id,
+          usuario_nome: usuario.nome,
+          tipo: "estoque",
+          acao: "Baixa de estoque por venda",
+          detalhes: {
+            venda_tipo: orderType,
+            itens: cart.map(i => `${i.quantity}x ${i.product.nome}`).join(", ")
+          }
+        });
+
+        // Log de Produto (para o filtro de produtos)
+        await registrarAuditoria({
+          usuario_id: usuario.id,
+          usuario_nome: usuario.nome,
+          tipo: "produto",
+          acao: "Produtos vendidos",
+          detalhes: {
+            itens: cart.map(i => i.product.nome).join(", "),
+            total: totalGeral
+          }
+        });
       }
 
       toast.success("Venda realizada com sucesso!");
-      setCart([]);
       setModalOpen(false);
-      setStep(1);
-      setPaymentMethod("");
-      setCustomerName("");
-      setNotes("");
-      setAddress("");
-      setPhone("");
-      setDeliveryFee(0);
-      setOrderType("Local");
-      fetchProducts();
-    } catch (err) {
+      resetAll();
+      fetchInitialData();
+      setReceiptOpen(true);
+    } catch {
       toast.error("Erro inesperado ao realizar venda");
     } finally {
       setIsSubmitting(false);
     }
   }
 
+  function handlePrint() {
+    const style = document.createElement("style");
+    style.innerHTML = printStyle;
+    document.head.appendChild(style);
+    window.print();
+    setTimeout(() => {
+      document.head.removeChild(style);
+      setReceiptOpen(false);
+    }, 500);
+  }
+
+  const stepLabels = ["Tipo de Pedido", "Revisão", "Pagamento"];
+
   return (
     <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-120px)] overflow-hidden -mt-2">
-      {/* Left - Products */}
+
+      {/* Left — Products */}
       <div className="flex-1 flex flex-col min-w-0 h-full">
         <div className="flex-none space-y-4 mb-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Nova Venda</h1>
             <p className="text-sm text-muted-foreground">Selecione os produtos para o pedido</p>
           </div>
-
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input placeholder="Buscar produtos..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-card" />
@@ -151,76 +415,42 @@ export default function NewSale() {
         </div>
 
         <div className="flex gap-2 mb-4 flex-wrap pb-2 border-b border-border/50 flex-none">
-          {allCategories.map((c) => (
-            <button
-              key={c}
-              onClick={() => setCategory(c)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                category === c
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "bg-card text-muted-foreground border border-border hover:bg-muted"
-              }`}
-            >
-              {c}
-            </button>
+          <button onClick={() => setSelectedCategoryId("Todos")} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedCategoryId === "Todos" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground border border-border hover:bg-muted"}`}>Todos</button>
+          {categories.map((c) => (
+            <button key={c.id} onClick={() => setSelectedCategoryId(c.id)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedCategoryId === c.id ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground border border-border hover:bg-muted"}`}>{c.nome}</button>
           ))}
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-muted-foreground/20">
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 px-1">
-          {filtered.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => addToCart(p)}
-              disabled={p.estoque <= 0}
-              className={`bg-card rounded-lg p-1.5 border border-border text-left transition-all hover:shadow-md ${
-                p.estoque <= 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:ring-2 hover:ring-primary/30"
-              }`}
-            >
-              <div className="flex items-start justify-between mb-0.5">
-                <span className={`${getCategoriaBadgeClass(p.categoria)} text-[9px] px-1 py-0`}>
-                  {p.categoria}
-                </span>
-                <span className="text-[9px] text-muted-foreground font-medium">
-                  {p.estoque} un.
-                </span>
-              </div>
-              <p className="font-semibold text-[11px] leading-tight truncate" title={p.nome}>{p.nome}</p>
-              <p className="text-orange-500 font-bold text-xs mt-0.5">{formatCurrency(p.preco)}</p>
-            </button>
-          ))}
+            {filtered.map((p) => (
+              <button key={p.id} onClick={() => addToCart(p)} disabled={p.estoque <= 0}
+                className={`bg-card rounded-lg p-1.5 border border-border text-left transition-all hover:shadow-md ${p.estoque <= 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:ring-2 hover:ring-primary/30"}`}>
+                <div className="flex items-start justify-between mb-0.5">
+                  <span className={`${getCategoriaBadgeClass(p.categorias?.nome || '')} text-[9px] px-1 py-0`}>{p.categorias?.nome || 'Geral'}</span>
+                  <span className="text-[9px] text-muted-foreground font-medium">{p.estoque} un.</span>
+                </div>
+                <p className="font-semibold text-[11px] leading-tight truncate" title={p.nome}>{p.nome}</p>
+                <p className="text-orange-500 font-bold text-xs mt-0.5">{formatCurrency(p.preco)}</p>
+              </button>
+            ))}
           </div>
-          {filtered.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <Search className="w-12 h-12 mb-2 opacity-20" />
-              <p>Nenhum produto encontrado</p>
-            </div>
-          )}
+          {filtered.length === 0 && <div className="flex flex-col items-center justify-center py-12 text-muted-foreground"><Search className="w-12 h-12 mb-2 opacity-20" /><p>Nenhum produto encontrado</p></div>}
         </div>
       </div>
 
-      {/* Right - Cart */}
+      {/* Right — Cart */}
       <div className="w-full lg:w-96 flex-none h-full">
         <div className="card-metric flex flex-col h-full bg-card shadow-lg border-primary/10">
           <div className="flex items-center justify-between mb-4 flex-none">
             <div className="flex items-center gap-2">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <ShoppingCart className="w-5 h-5 text-primary" />
-              </div>
+              <div className="p-2 bg-primary/10 rounded-lg"><ShoppingCart className="w-5 h-5 text-primary" /></div>
               <h2 className="font-bold text-lg">Carrinho</h2>
             </div>
-            <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-bold">
-              {cart.reduce((s, i) => s + i.quantity, 0)} itens
-            </span>
+            <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-bold">{cart.reduce((s, i) => s + i.quantity, 0)} itens</span>
           </div>
-
           <div className="flex-1 overflow-y-auto space-y-3 pr-2 mb-4 scrollbar-thin scrollbar-thumb-muted-foreground/20">
-            {cart.length === 0 && (
-              <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50 py-12">
-                <ShoppingCart className="w-12 h-12 mb-2" />
-                <p className="text-sm">Seu carrinho está vazio</p>
-              </div>
-            )}
+            {cart.length === 0 && <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50 py-12"><ShoppingCart className="w-12 h-12 mb-2" /><p className="text-sm">Seu carrinho está vazio</p></div>}
             {cart.map((item) => (
               <div key={item.product.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/40 border border-transparent hover:border-primary/20 transition-all">
                 <div className="min-w-0 flex-1">
@@ -228,184 +458,288 @@ export default function NewSale() {
                   <p className="text-xs text-muted-foreground">{formatCurrency(item.product.preco)} / un.</p>
                 </div>
                 <div className="flex items-center gap-2 bg-background p-1.5 rounded-lg border border-border">
-                  <button onClick={() => updateQuantity(item.product.id, -1)} className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center transition-colors">
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
+                  <button onClick={() => updateQuantity(item.product.id, -1)} className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center transition-colors"><Minus className="w-3.5 h-3.5" /></button>
                   <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.product.id, 1)} className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center transition-colors">
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
+                  <button onClick={() => updateQuantity(item.product.id, 1)} className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center transition-colors"><Plus className="w-3.5 h-3.5" /></button>
                 </div>
-                <button onClick={() => removeFromCart(item.product.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
+                <button onClick={() => removeFromCart(item.product.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors"><X className="w-4 h-4" /></button>
               </div>
             ))}
           </div>
-
           <div className="flex-none border-t border-border pt-4 bg-card">
             <div className="flex justify-between items-center mb-4">
               <span className="text-muted-foreground font-medium">Total do Pedido</span>
-              <span className="text-2xl font-extrabold text-primary">{formatCurrency(total)}</span>
+              <span className="text-2xl font-extrabold text-primary">{formatCurrency(subtotal)}</span>
             </div>
-            <Button
-              onClick={() => setModalOpen(true)}
-              disabled={cart.length === 0}
-              className="w-full h-12 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
-            >
-              Finalizar Venda
+            <Button onClick={() => { setStep(1); setModalOpen(true); }} disabled={cart.length === 0} className="w-full h-12 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20">
+              Revisar Pedido
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Checkout Modal */}
+      {/* ===== CHECKOUT MODAL ===== */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Finalizar Venda - Passo {step}</DialogTitle>
-          </DialogHeader>
-          
-          {step === 1 ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                {cart.map((i) => (
-                  <div key={i.product.id} className="flex justify-between text-sm">
-                    <span>{i.quantity}x {i.product.nome}</span>
-                    <span>{formatCurrency(i.product.preco * i.quantity)}</span>
-                  </div>
-                ))}
-                <div className="border-t border-border pt-2 flex justify-between font-bold">
-                  <span>Subtotal</span>
-                  <span className="text-primary">{formatCurrency(total)}</span>
-                </div>
-              </div>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Finalizar Venda</DialogTitle></DialogHeader>
 
+          {/* Progress */}
+          <div className="flex items-center gap-1 mb-2">
+            {stepLabels.map((label, idx) => {
+              const n = idx + 1; const isActive = step === n; const isDone = step > n;
+              return (
+                <div key={n} className="flex items-center flex-1">
+                  <div className="flex flex-col items-center flex-1">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${isDone ? "bg-primary text-primary-foreground" : isActive ? "bg-primary/20 text-primary border-2 border-primary" : "bg-muted text-muted-foreground"}`}>
+                      {isDone ? <Check className="w-3.5 h-3.5" /> : n}
+                    </div>
+                    <span className={`text-[10px] mt-0.5 text-center leading-tight ${isActive ? "text-primary font-semibold" : "text-muted-foreground"}`}>{label}</span>
+                  </div>
+                  {idx < stepLabels.length - 1 && <div className={`h-0.5 flex-1 mb-4 transition-colors ${isDone ? "bg-primary" : "bg-border"}`} />}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* PASSO 1 */}
+          {step === 1 && (
+            <div className="space-y-4">
               <div>
-                <Label className="mb-2 block">Forma de Pagamento</Label>
+                <Label className="mb-2 block font-semibold">Tipo de Pedido</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  {paymentMethods.map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setPaymentMethod(m)}
-                      className={`p-2 rounded-lg text-sm font-medium border transition-colors ${
-                        paymentMethod === m
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {m}
+                  {(["Local", "Entrega"] as const).map((type) => (
+                    <button key={type} onClick={() => { setOrderType(type); clearClient(); setIdentification(""); }}
+                      className={`p-3 rounded-lg text-sm font-semibold border-2 transition-colors ${orderType === type ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                      {type === "Local" ? "🍽️ Consumir no Local" : "🛵 Entrega"}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div>
-                <Label>Cliente (opcional)</Label>
-                <input 
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  value={customerName} 
-                  onChange={(e) => setCustomerName(e.target.value)} 
-                  placeholder="Nome do cliente" 
-                />
-              </div>
-
-              <div>
-                <Label>Observações (opcional)</Label>
-                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex: sem cebola, sem maionese..." />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-                <Button onClick={() => setStep(2)} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                  Próximo
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label className="mb-2 block">Tipo de Pedido</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setOrderType("Local")}
-                    className={`p-2 rounded-lg text-sm font-medium border transition-colors ${
-                      orderType === "Local"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    Consumir no Local
-                  </button>
-                  <button
-                    onClick={() => setOrderType("Entrega")}
-                    className={`p-2 rounded-lg text-sm font-medium border transition-colors ${
-                      orderType === "Entrega"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    Entrega
-                  </button>
+              {orderType === "Local" && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                  <Label>Identificação (opcional)</Label>
+                  <input className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1"
+                    value={identification} onChange={(e) => setIdentification(e.target.value)} placeholder="Ex: Mesa 3, João, Balcão..." />
                 </div>
-              </div>
+              )}
 
               {orderType === "Entrega" && (
                 <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div>
-                    <Label>Endereço de Entrega</Label>
-                    <input 
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      value={address} 
-                      onChange={(e) => setAddress(e.target.value)} 
-                      placeholder="Rua, número, bairro..." 
-                    />
+                  <div ref={clientSearchRef} className="relative">
+                    <Label className="mb-1 block">Cliente</Label>
+                    {selectedClient ? (
+                      <div className="flex items-center gap-2 p-2.5 rounded-lg border border-primary/40 bg-primary/5">
+                        <Check className="w-4 h-4 text-primary flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate">{selectedClient.nome}</p>
+                          {selectedClient.telefone && <p className="text-xs text-muted-foreground">{selectedClient.telefone}</p>}
+                        </div>
+                        <button onClick={clearClient} className="p-1 rounded hover:bg-destructive/10 text-destructive transition-colors"><X className="w-3.5 h-3.5" /></button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                          <input className="flex h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            value={clientQuery} onChange={(e) => { setClientQuery(e.target.value); setShowNewClientForm(false); }} placeholder="Buscar por nome ou telefone..." autoComplete="off" />
+                        </div>
+                        {showSuggestions && clientSuggestions.length > 0 && (
+                          <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-lg shadow-xl overflow-hidden">
+                            {clientSuggestions.map((c) => (
+                              <button key={c.id} onClick={() => selectClient(c)} className="w-full text-left px-3 py-2.5 hover:bg-muted transition-colors border-b border-border/50 last:border-0">
+                                <p className="text-sm font-semibold">{c.nome}</p>
+                                {c.telefone && <p className="text-xs text-muted-foreground">{c.telefone}</p>}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {!showNewClientForm && (
+                          <button type="button" onClick={() => { setShowSuggestions(false); setShowNewClientForm(true); setNewClientNome(clientQuery); }}
+                            className="mt-1.5 flex items-center gap-1.5 text-xs text-primary hover:underline font-medium">
+                            <UserPlus className="w-3.5 h-3.5" />+ Cadastrar novo cliente
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    {showNewClientForm && !selectedClient && (
+                      <div className="mt-2 p-3 rounded-lg border border-border bg-muted/30 space-y-2 animate-in fade-in duration-200">
+                        <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Novo Cliente</p>
+                        {[{ val: newClientNome, set: setNewClientNome, ph: "Nome *" }, { val: newClientTelefone, set: setNewClientTelefone, ph: "Telefone" }, { val: newClientEndereco, set: setNewClientEndereco, ph: "Endereço" }, { val: newClientComplemento, set: setNewClientComplemento, ph: "Complemento" }].map(({ val, set, ph }) => (
+                          <input key={ph} className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            placeholder={ph} value={val} onChange={(e) => set(e.target.value)} />
+                        ))}
+                        <div className="flex gap-2 pt-1">
+                          <Button variant="outline" size="sm" onClick={() => setShowNewClientForm(false)} className="flex-1">Cancelar</Button>
+                          <Button size="sm" onClick={handleSaveNewClient} disabled={isSavingClient} className="flex-1 bg-primary text-primary-foreground">{isSavingClient ? "Salvando..." : "Cadastrar"}</Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label>Telefone</Label>
-                      <input 
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        value={phone} 
-                        onChange={(e) => setPhone(e.target.value)} 
-                        placeholder="(00) 00000-0000" 
-                      />
+
+                  {selectedClient && (
+                    <div className="space-y-2">
+                      <div>
+                        <Label>Endereço de Entrega</Label>
+                        <input className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1"
+                          value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Rua, número, bairro..." />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label>Complemento</Label>
+                          <input className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1"
+                            value={complement} onChange={(e) => setComplement(e.target.value)} placeholder="Apto, bloco..." />
+                        </div>
+                        <div>
+                          <Label>Telefone</Label>
+                          <input className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1"
+                            value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(00) 00000-0000" />
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <Label>Taxa de Entrega</Label>
-                      <input 
-                        type="number"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        value={deliveryFee} 
-                        onChange={(e) => setDeliveryFee(Number(e.target.value))} 
-                        placeholder="0,00" 
-                      />
-                    </div>
+                  )}
+
+                  <div>
+                    <Label>Taxa de Entrega (R$)</Label>
+                    <input type="number" step="0.01" min="0"
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring mt-1"
+                      value={deliveryFee} onChange={(e) => setDeliveryFee(parseFloat(e.target.value) || 0)} placeholder="0,00" />
                   </div>
                 </div>
               )}
 
-              <div className="border-t border-border pt-4 mt-4">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="font-medium">Total</span>
-                  <div className="text-right">
-                    <span className="text-xl font-bold text-primary">
-                      {formatCurrency(total + (orderType === "Entrega" ? deliveryFee : 0))}
-                    </span>
-                    {orderType === "Entrega" && deliveryFee > 0 && (
-                      <p className="text-[10px] text-muted-foreground">(Incluso R$ {deliveryFee} de taxa)</p>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setStep(1)} disabled={isSubmitting}>Voltar</Button>
-                  <Button onClick={handleConfirmSale} disabled={isSubmitting} className="bg-primary text-primary-foreground hover:bg-primary/90">
-                    {isSubmitting ? "Processando..." : "Confirmar Venda"}
-                  </Button>
-                </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
+                <Button onClick={() => setStep(2)} className="bg-primary text-primary-foreground hover:bg-primary/90">Próximo →</Button>
               </div>
             </div>
+          )}
+
+          {/* PASSO 2 */}
+          {step === 2 && (
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                {cart.map((i) => (
+                  <div key={i.product.id} className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">{i.quantity}x {i.product.nome}</span>
+                    <span className="font-medium">{formatCurrency(i.product.preco * i.quantity)}</span>
+                  </div>
+                ))}
+                <div className="border-t border-border/60 pt-2 mt-2 space-y-1">
+                  <div className="flex justify-between text-sm"><span className="text-muted-foreground">Subtotal (Itens)</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
+                  {orderType === "Entrega" && <div className="flex justify-between text-sm"><span className="text-muted-foreground">Taxa de Entrega</span><span className="font-medium">{formatCurrency(deliveryFee)}</span></div>}
+                  <div className="flex justify-between items-center pt-1 border-t border-border"><span className="font-bold">Total Geral</span><span className="text-xl font-extrabold text-primary">{formatCurrency(totalGeral)}</span></div>
+                </div>
+              </div>
+
+              {orderType === "Entrega" && selectedClient && (
+                <div className="p-3 rounded-lg border border-border bg-muted/30 text-sm space-y-0.5">
+                  <p className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">Dados da Entrega</p>
+                  <p><span className="text-muted-foreground">Cliente:</span> {selectedClient.nome}</p>
+                  {phone && <p><span className="text-muted-foreground">Telefone:</span> {phone}</p>}
+                  {address && <p><span className="text-muted-foreground">Endereço:</span> {address}</p>}
+                  {complement && <p><span className="text-muted-foreground">Complemento:</span> {complement}</p>}
+                </div>
+              )}
+              {orderType === "Local" && identification && (
+                <div className="p-3 rounded-lg border border-border bg-muted/30 text-sm">
+                  <p className="font-semibold text-xs uppercase tracking-wide text-muted-foreground mb-1">Identificação</p>
+                  <p>{identification}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setStep(1)}>← Voltar</Button>
+                <Button onClick={() => setStep(3)} className="bg-primary text-primary-foreground hover:bg-primary/90">Próximo →</Button>
+              </div>
+            </div>
+          )}
+
+          {/* PASSO 3 */}
+          {step === 3 && (
+            <div className="space-y-4">
+              <div>
+                <Label className="mb-2 block font-semibold">Forma de Pagamento</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {paymentMethods.map((m) => (
+                    <button key={m.id} onClick={() => setPaymentMethodId(m.id)}
+                      className={`p-2.5 rounded-lg text-sm font-semibold border-2 transition-all ${paymentMethodId === m.id ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>
+                      {m.nome}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {orderType === "Entrega" && paymentMethods.find(m => m.id === paymentMethodId)?.nome?.toLowerCase().includes("dinheiro") && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-200 space-y-2 p-3 rounded-lg border border-border bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <Label className="font-semibold">Troco para quanto? <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+                    <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+                      <input type="checkbox" checked={noTroco} onChange={(e) => { setNoTroco(e.target.checked); if (e.target.checked) setTrocoValor(""); }} className="rounded border-border w-3.5 h-3.5 accent-orange-500" />
+                      Não precisa de troco
+                    </label>
+                  </div>
+                  {!noTroco && (
+                    <>
+                      <input type="number" step="0.01" min="0"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        value={trocoValor} onChange={(e) => setTrocoValor(e.target.value)} placeholder="Ex: 100,00" />
+                      {trocoValor && (() => {
+                        const val = parseFloat(trocoValor);
+                        const troco = val - totalGeral;
+                        if (val < totalGeral) return <p className="text-xs text-destructive font-medium">⚠️ Valor insuficiente (faltam {formatCurrency(totalGeral - val)})</p>;
+                        return <p className="text-xs text-green-600 font-medium">Troco: {formatCurrency(troco)}</p>;
+                      })()}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <Label>Observações (opcional)</Label>
+                <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Ex: sem cebola, sem maionese..." className="mt-1" />
+              </div>
+
+              <div className="border-t border-border pt-3 flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Total a pagar</span>
+                <span className="text-xl font-extrabold text-primary">{formatCurrency(totalGeral)}</span>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setStep(2)} disabled={isSubmitting}>← Voltar</Button>
+                <Button onClick={handleConfirmSale} disabled={isSubmitting} className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1">
+                  {isSubmitting ? "Processando..." : "✓ Confirmar Venda"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== RECEIPT MODAL ===== */}
+      <Dialog open={receiptOpen} onOpenChange={() => { setReceiptOpen(false); setReceiptData(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-600">
+              <Check className="w-5 h-5" /> Venda Confirmada!
+            </DialogTitle>
+          </DialogHeader>
+
+          {receiptData && (
+            <>
+              <div className="border border-border rounded-lg p-4 bg-white overflow-auto max-h-96 text-xs">
+                <Receipt data={receiptData} />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" onClick={() => { setReceiptOpen(false); setReceiptData(null); }} className="flex-1">
+                  Fechar
+                </Button>
+                <Button onClick={handlePrint} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Printer className="w-4 h-4 mr-2" /> Imprimir
+                </Button>
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
