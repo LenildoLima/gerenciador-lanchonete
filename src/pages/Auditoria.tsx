@@ -83,6 +83,8 @@ export default function Auditoria() {
       usuario: "bg-orange-100 text-orange-700 border-orange-200",
       senha: "bg-red-100 text-red-700 border-red-200",
       estoque: "bg-yellow-100 text-yellow-700 border-yellow-200",
+      caixa: "bg-emerald-100 text-emerald-700 border-emerald-200",
+      entrega: "bg-sky-100 text-sky-700 border-sky-200",
     };
     return (
       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${colors[tipo] || "bg-gray-100 text-gray-700"}`}>
@@ -145,6 +147,8 @@ export default function Auditoria() {
             <option value="usuario">Usuários</option>
             <option value="senha">Senhas</option>
             <option value="estoque">Estoque</option>
+            <option value="caixa">Caixa</option>
+            <option value="entrega">Entregas</option>
           </select>
         </div>
       </div>

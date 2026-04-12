@@ -142,7 +142,10 @@ function Receipt({ data }: { data: ReceiptData }) {
       )}
       {data.notes && <><div>{sep}</div><div style={{ fontSize: 11 }}>Obs: {data.notes}</div></>}
       <div>{sep}</div>
-      <div style={{ textAlign: "center" }}>Bom apetite! 🛵</div>
+      <div style={{ marginTop: 8, padding: "8px 0", borderTop: "1px dashed #000" }}>
+        Entregador: _______________________
+      </div>
+      <div style={{ textAlign: "center", marginTop: 4 }}>Bom apetite! 🛵</div>
     </div>
   );
 }

@@ -17,6 +17,9 @@ import EsqueciSenha from "./pages/EsqueciSenha";
 import UsersPage from "./pages/Users";
 import Perfil from "./pages/Perfil";
 import Auditoria from "./pages/Auditoria";
+import Caixa from "./pages/Caixa";
+import Entregadores from "./pages/Entregadores";
+import Entregas from "./pages/Entregas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -112,6 +115,36 @@ const App = () => (
                 <ProtectedRoute apenasAdmin>
                   <AppLayout>
                     <UsersPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/caixa"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Caixa />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/entregas"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Entregas />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/entregadores"
+              element={
+                <ProtectedRoute apenasAdmin>
+                  <AppLayout>
+                    <Entregadores />
                   </AppLayout>
                 </ProtectedRoute>
               }

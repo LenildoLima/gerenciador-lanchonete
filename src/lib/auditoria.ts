@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface RegistrarAuditoriaParams {
   usuario_id: string;
   usuario_nome: string;
-  tipo: "autenticacao" | "venda" | "produto" | "usuario" | "senha" | "estoque";
+  tipo: "autenticacao" | "venda" | "produto" | "usuario" | "senha" | "estoque" | "caixa" | "entrega";
   acao: string;
   detalhes?: Record<string, any>;
 }

@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, ShoppingCart, ClipboardList, Menu, X, Users, LogOut, UserCircle, Activity } from "lucide-react";
+import { LayoutDashboard, Package, ShoppingCart, ClipboardList, Menu, X, Users, LogOut, UserCircle, Activity, Wallet, Bike } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, Link } from "react-router-dom";
 import { useState } from "react";
@@ -11,6 +11,9 @@ const todosItems = [
   { title: "Nova Venda", url: "/nova-venda", icon: ShoppingCart, perfis: ["admin", "atendente"] },
   { title: "Vendas", url: "/vendas", icon: ClipboardList, perfis: ["admin", "atendente"] },
   { title: "Usuários", url: "/usuarios", icon: Users, perfis: ["admin"] },
+  { title: "Caixa", url: "/caixa", icon: Wallet, perfis: ["admin", "atendente"] },
+  { title: "Entregadores", url: "/entregadores", icon: Bike, perfis: ["admin"] },
+  { title: "Entregas", url: "/entregas", icon: Bike, perfis: ["admin", "atendente"] },
   { title: "Auditoria", url: "/auditoria", icon: Activity, perfis: ["admin"] },
 ];
 
