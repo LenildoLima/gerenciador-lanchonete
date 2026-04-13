@@ -91,14 +91,22 @@ export function Navbar() {
       <div className="container mx-auto px-4 h-full">
         <div className="flex h-full items-center justify-between">
           {/* ESQUERDA - apenas o logo */}
-          <Link to="/" className="flex flex-col group">
+          <Link to="/" className="flex flex-col group transition-all duration-300">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white shadow-xl flex items-center justify-center text-xl transition-all duration-300 group-hover:scale-110">
+              {/* Logo com Emoji e Efeito de Vidro Azulado */}
+              <div className="w-12 h-12 rounded-2xl bg-[#1e3a8a]/20 backdrop-blur-sm shadow-xl flex items-center justify-center text-[28px] border border-white/10 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6">
                 🍔
               </div>
+              
+              {/* Tipografia de Marca com Amarelo Vibrante */}
               <div>
-                <h1 className="font-black text-xl tracking-tighter text-white leading-none">LaunchApp</h1>
-                <p className="text-[9px] text-white/70 font-bold uppercase tracking-widest mt-0.5">Gestão de Lanchonete</p>
+                <div className="flex items-baseline leading-none">
+                  <span className="font-black text-[26px] tracking-tighter text-[#FACC15] drop-shadow-md">Launch</span>
+                  <span className="font-light text-[26px] tracking-tighter text-white ml-0.5">App</span>
+                </div>
+                <p className="text-[8.5px] text-[#FACC15] font-black uppercase tracking-[0.35em] mt-0.5 opacity-90">
+                  GESTÃO DE LANCHONETE
+                </p>
               </div>
             </div>
           </Link>
@@ -109,13 +117,13 @@ export function Navbar() {
             <div className="hidden md:flex items-center gap-1 h-full" ref={dropdownRef}>
               <Link
                 to="/"
-                className={`flex items-center gap-2 px-3 py-2 rounded-[0.65rem] transition-all text-sm font-bold ${
+                className={`flex items-center gap-[0.4rem] h-[48px] px-4 rounded-[0.65rem] transition-all duration-200 text-[0.875rem] font-bold text-white bg-[#7c3aed] ${
                   location.pathname === "/"
-                    ? "bg-white/25 text-white"
-                    : "text-white/90 hover:bg-white/20 hover:text-white"
+                    ? "brightness-[85%] shadow-[0_2px_8px_rgba(0,0,0,0.2)]"
+                    : "hover:brightness-[115%]"
                 }`}
               >
-                <LayoutDashboard size={18} />
+                <LayoutDashboard size={20} className="text-white" />
                 Painel
               </Link>
 
@@ -127,15 +135,21 @@ export function Navbar() {
                   <div key={group.name} className="relative h-full flex items-center">
                     <button
                       onClick={() => setOpenDropdown(active ? null : group.name)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-[0.65rem] transition-all text-sm font-bold ${
+                      className={`flex items-center gap-[0.4rem] h-[48px] px-4 rounded-[0.65rem] transition-all duration-200 text-[0.875rem] font-bold text-white ${
                         containsPage || active
-                          ? "bg-white/25 text-white"
-                          : "text-white/90 hover:bg-white/20 hover:text-white"
+                          ? "brightness-[85%] shadow-[0_2px_8px_rgba(0,0,0,0.2)]"
+                          : "hover:brightness-[115%]"
                       }`}
+                      style={{ 
+                        backgroundColor: 
+                          group.name === "Vendas" ? "#16a34a" : 
+                          group.name === "Gestão" ? "#0891b2" : 
+                          "#15803d" // Financeiro
+                      }}
                     >
-                      <group.icon size={18} />
+                      <group.icon size={20} className="text-white" />
                       {group.name}
-                      <ChevronDown size={14} className={`transition-transform duration-200 ${active ? "rotate-180" : ""}`} />
+                      <ChevronDown size={18} className={`text-white transition-transform duration-200 ${active ? "rotate-180" : ""}`} />
                     </button>
 
                     {active && (
@@ -149,7 +163,7 @@ export function Navbar() {
                               className={`flex items-center gap-3 p-2 rounded-[0.5rem] transition-all group ${
                                 isActive
                                   ? "bg-[#f97316] text-white"
-                                  : "text-gray-700 hover:bg-[#fff7ed] hover:text-[#f97316]"
+                                  : "text-[#1e3a8a] whitespace-nowrap hover:bg-[#fff7ed] hover:text-[#f97316]"
                               }`}
                             >
                               <div 
@@ -173,17 +187,17 @@ export function Navbar() {
                 <div className="relative h-full flex items-center">
                   <button
                     onClick={() => setOpenDropdown(openDropdown === "UserMenu" ? null : "UserMenu")}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-[0.65rem] transition-all text-sm font-bold ${
+                    className={`flex items-center gap-[0.4rem] h-[48px] px-4 rounded-[0.65rem] transition-all duration-200 text-[0.875rem] font-bold text-white bg-[#dc2626] ${
                       openDropdown === "UserMenu" || (isAdmin ? isGroupActive([{url: "/usuarios"}, {url: "/auditoria"}, {url: "/perfil"}]) : location.pathname === "/perfil")
-                        ? "bg-white/25 text-white"
-                        : "text-white/90 hover:bg-white/20 hover:text-white"
+                        ? "brightness-[85%] shadow-[0_2px_8px_rgba(0,0,0,0.2)]"
+                        : "hover:brightness-[115%]"
                     }`}
                   >
-                    <div className="w-7 h-7 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-black text-xs border-2 border-white/50 shadow-sm">
+                    <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-white font-black text-[10px] border border-white/30 shadow-sm">
                       {iniciais}
                     </div>
                     <span>{isAdmin ? "Administração" : primeiroNome}</span>
-                    <ChevronDown size={14} className={`transition-transform duration-200 ${openDropdown === "UserMenu" ? "rotate-180" : ""}`} />
+                    <ChevronDown size={18} className={`text-white transition-transform duration-200 ${openDropdown === "UserMenu" ? "rotate-180" : ""}`} />
                   </button>
 
                   {openDropdown === "UserMenu" && (
@@ -193,7 +207,7 @@ export function Navbar() {
                           <Link
                             to="/usuarios"
                             className={`flex items-center gap-3 p-2 rounded-[0.5rem] transition-all group ${
-                              location.pathname === "/usuarios" ? "bg-[#f97316] text-white" : "text-gray-700 hover:bg-[#fff7ed] hover:text-[#f97316]"
+                              location.pathname === "/usuarios" ? "bg-[#f97316] text-white" : "text-[#1e3a8a] hover:bg-[#fff7ed] hover:text-[#f97316]"
                             }`}
                           >
                             <div className="w-8 h-8 flex items-center justify-center rounded-[0.5rem] bg-[#dc2626] text-white shadow-sm">
@@ -204,7 +218,7 @@ export function Navbar() {
                           <Link
                             to="/auditoria"
                             className={`flex items-center gap-3 p-2 rounded-[0.5rem] transition-all group mt-1 ${
-                              location.pathname === "/auditoria" ? "bg-[#f97316] text-white" : "text-gray-700 hover:bg-[#fff7ed] hover:text-[#f97316]"
+                              location.pathname === "/auditoria" ? "bg-[#f97316] text-white" : "text-[#1e3a8a] hover:bg-[#fff7ed] hover:text-[#f97316]"
                             }`}
                           >
                             <div className="w-8 h-8 flex items-center justify-center rounded-[0.5rem] bg-[#374151] text-white shadow-sm">
@@ -219,7 +233,7 @@ export function Navbar() {
                       <Link
                         to="/perfil"
                         className={`flex items-center gap-3 p-2 rounded-[0.5rem] transition-all group ${
-                          location.pathname === "/perfil" ? "bg-[#f97316] text-white" : "text-gray-700 hover:bg-[#fff7ed] hover:text-[#f97316]"
+                          location.pathname === "/perfil" ? "bg-[#f97316] text-white" : "text-[#1e3a8a] hover:bg-[#fff7ed] hover:text-[#f97316]"
                         }`}
                       >
                         <div className="w-8 h-8 flex items-center justify-center rounded-[0.5rem] bg-[#7c3aed] text-white shadow-sm">
@@ -287,7 +301,7 @@ export function Navbar() {
                         onClick={() => setIsOpen(false)}
                         className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all shadow-md ${
                           isActive
-                            ? "bg-white text-gray-900 font-black"
+                            ? "bg-white text-[#1e3a8a] font-black"
                             : "bg-white/10 text-white hover:bg-white/20 font-bold"
                         }`}
                       >
@@ -315,7 +329,7 @@ export function Navbar() {
                       to="/usuarios"
                       onClick={() => setIsOpen(false)}
                       className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold ${
-                        location.pathname === "/usuarios" ? "bg-white text-gray-900" : "bg-white/10 text-white"
+                        location.pathname === "/usuarios" ? "bg-white text-[#1e3a8a]" : "bg-white/10 text-white"
                       }`}
                     >
                       <UserCog size={18} />
@@ -325,7 +339,7 @@ export function Navbar() {
                       to="/auditoria"
                       onClick={() => setIsOpen(false)}
                       className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold ${
-                        location.pathname === "/auditoria" ? "bg-white text-gray-900" : "bg-white/10 text-white"
+                        location.pathname === "/auditoria" ? "bg-white text-[#1e3a8a]" : "bg-white/10 text-white"
                       }`}
                     >
                       <Shield size={18} />
@@ -338,7 +352,7 @@ export function Navbar() {
                   to="/perfil"
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-bold ${
-                    location.pathname === "/perfil" ? "bg-white text-gray-900" : "bg-white/10 text-white"
+                    location.pathname === "/perfil" ? "bg-white text-[#1e3a8a]" : "bg-white/10 text-white"
                   }`}
                 >
                   <UserCircle size={18} />

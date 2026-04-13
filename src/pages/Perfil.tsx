@@ -108,7 +108,7 @@ export default function Perfil() {
         {/* Header da Tela Perfil */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "2rem" }}>
           <div>
-            <h1 style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "1.75rem", fontWeight: 800, color: "#111827", margin: 0 }}>
+            <h1 style={{ display: "flex", alignItems: "center", gap: "0.6rem", fontSize: "1.75rem", fontWeight: 800, color: "#1e3a8a", margin: 0 }}>
               <UserIcon size={28} color="#ea580c" />
               Meu Perfil
             </h1>
@@ -123,7 +123,7 @@ export default function Perfil() {
               border: "1px solid #e5e7eb",
               padding: "0.5rem 1rem",
               borderRadius: "0.6rem",
-              color: "#374151",
+              color: "#1e3a8a",
               fontWeight: 600,
               fontSize: "0.9rem",
               cursor: "pointer",
@@ -193,7 +193,7 @@ export default function Perfil() {
             <form onSubmit={handleAlterarSenha} style={{ paddingTop: "2.5rem" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.5rem" }}>
                 <Lock size={18} color="#ea580c" />
-                <h2 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#111827", margin: 0 }}>Alterar Senha</h2>
+                <h2 style={{ fontSize: "1.1rem", fontWeight: 800, color: "#1e3a8a", margin: 0 }}>Alterar Senha</h2>
               </div>
 
               {/* Workaround for browser autocomplete */}
@@ -279,7 +279,7 @@ const labelStyle: React.CSSProperties = {
   display: "block",
   fontSize: "0.85rem",
   fontWeight: 600,
-  color: "#374151",
+  color: "#1e3a8a",
   marginBottom: "0.4rem"
 };
 
@@ -289,7 +289,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: "0.65rem",
   border: "1.5px solid #e5e7eb",
   fontSize: "1rem",
-  color: "#111827",
+  color: "#1e3a8a",
   outline: "none",
   background: "#fff",
   boxSizing: "border-box",

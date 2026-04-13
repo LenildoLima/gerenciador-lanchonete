@@ -292,7 +292,7 @@ export default function Entregas() {
             key={s}
             onClick={() => setFiltroStatus(s)}
             className={`px-5 py-2.5 text-xs font-black rounded-xl capitalize transition-all ${filtroStatus === s
-                ? "bg-white text-primary shadow-sm shadow-black/5 scale-[1.02]"
+                ? "bg-white text-primary shadow-sm shadow-[#1e3a8a]/5 scale-[1.02]"
                 : "text-muted-foreground hover:text-foreground"
               }`}
           >
@@ -420,7 +420,7 @@ export default function Entregas() {
       </div>
 
       {modalDesignar.aberto && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#1e3a8a]/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl animate-in zoom-in-95 duration-200">
             <h2 className="text-xl font-black mb-6 flex items-center gap-3">
               <Navigation className="text-primary" /> Designar Entregador

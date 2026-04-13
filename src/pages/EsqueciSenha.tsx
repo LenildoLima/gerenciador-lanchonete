@@ -160,7 +160,7 @@ export default function EsqueciSenha() {
                 padding: "0.85rem",
                 borderRadius: "0.75rem",
                 background: "#f3f4f6",
-                color: "#374151",
+                color: "#1e3a8a",
                 fontWeight: 600,
                 textDecoration: "none",
                 textAlign: "center",
@@ -183,7 +183,7 @@ export default function EsqueciSenha() {
                     display: "block",
                     fontSize: "0.85rem",
                     fontWeight: 600,
-                    color: "#374151",
+                    color: "#1e3a8a",
                     marginBottom: "0.4rem",
                   }}
                 >
@@ -205,7 +205,7 @@ export default function EsqueciSenha() {
                     border: erro ? "1.5px solid #ef4444" : "1.5px solid #e5e7eb",
                     fontSize: "0.95rem",
                     outline: "none",
-                    color: "#111827",
+                    color: "#1e3a8a",
                     background: carregando ? "#f9fafb" : "#fff",
                     transition: "border 0.2s",
                     boxSizing: "border-box",

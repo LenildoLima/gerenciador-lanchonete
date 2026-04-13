@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatTime } from "@/lib/format";
-import { ShoppingCart, DollarSign, Package, AlertTriangle, Receipt, TrendingUp } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { ShoppingCart, DollarSign, Package, AlertTriangle, Receipt, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Product {
   id: string;
@@ -44,13 +44,17 @@ export default function Dashboard() {
   const [todaySales, setTodaySales] = useState<SaleWithItems[]>([]);
   const [allSales, setAllSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [chartData, setChartData] = useState<{ day: string; value: number }[]>([]);
+  const [chartData, setChartData] = useState<{ dia: string; valor: number }[]>([]);
   const [mostSoldProduct, setMostSoldProduct] = useState<{ nome: string; qtd: number } | null>(null);
+  const [mesSelecionado, setMesSelecionado] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   useEffect(() => {
     fetchData();
 
-    // Realtime subscription
+    // Inscrição em tempo real
     const channel = supabase
       .channel("dashboard-changes")
       .on(
@@ -68,30 +72,35 @@ export default function Dashboard() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [mesSelecionado]);
 
   async function fetchData() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const firstDayMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    sevenDaysAgo.setHours(0, 0, 0, 0);
-
-    const minDate = firstDayMonth < sevenDaysAgo ? firstDayMonth : sevenDaysAgo;
+    const primeiroDiaMes = new Date(mesSelecionado.getFullYear(), mesSelecionado.getMonth(), 1);
+    const ultimoDiaMes = new Date(mesSelecionado.getFullYear(), mesSelecionado.getMonth() + 1, 0);
+    ultimoDiaMes.setHours(23, 59, 59, 999);
 
     const [productsRes, allNeededSalesRes, todaySalesRes] = await Promise.all([
       supabase.from("produtos").select("*, categorias(nome)"),
-      supabase.from("vendas").select("*, formas_pagamento(nome), entregas(*)").gte("criado_em", minDate.toISOString()).eq("situacao", "Concluída"),
-      supabase.from("vendas").select("*, formas_pagamento(nome), entregas(*)").gte("criado_em", today.toISOString()).eq("situacao", "Concluída"),
+      supabase
+        .from("vendas")
+        .select("*, formas_pagamento(nome), entregas(*)")
+        .gte("criado_em", primeiroDiaMes.toISOString())
+        .lte("criado_em", ultimoDiaMes.toISOString())
+        .eq("situacao", "Concluída"),
+      supabase
+        .from("vendas")
+        .select("*, formas_pagamento(nome), entregas(*)")
+        .gte("criado_em", today.toISOString())
+        .eq("situacao", "Concluída"),
     ]);
 
     const salesList = (allNeededSalesRes.data as any[]) || [];
     setProducts((productsRes.data as any[]) || []);
     
-    const monthlySales = salesList.filter(s => new Date(s.criado_em) >= firstDayMonth);
-    setAllSales(monthlySales);
+    setAllSales(salesList);
 
     const todayData = (todaySalesRes.data as any[]) || [];
     const salesWithItems: SaleWithItems[] = [];
@@ -119,26 +128,40 @@ export default function Dashboard() {
     const sortedItems = Object.values(itemsCount).sort((a, b) => b.qtd - a.qtd);
     setMostSoldProduct(sortedItems[0] || null);
 
-    const days = [];
-    const dayNames = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      d.setHours(0, 0, 0, 0);
-      const nextD = new Date(d);
-      nextD.setDate(nextD.getDate() + 1);
+    // Gerar dados para o gráfico (todos os dias do mês)
+    const diasNoMes = ultimoDiaMes.getDate();
+    const dadosGrafico = [];
 
-      const dayTotal = (salesList)
+    for (let dia = 1; dia <= diasNoMes; dia++) {
+      const dataInicio = new Date(mesSelecionado.getFullYear(), mesSelecionado.getMonth(), dia, 0, 0, 0);
+      const dataFim = new Date(mesSelecionado.getFullYear(), mesSelecionado.getMonth(), dia, 23, 59, 59);
+
+      const totalDoDia = salesList
         .filter((s) => {
-          const sd = new Date(s.criado_em);
-          return sd >= d && sd < nextD;
+          const dataVenda = new Date(s.criado_em);
+          return dataVenda >= dataInicio && dataVenda <= dataFim;
         })
-        .reduce((sum, s) => sum + Number(s.total), 0);
+        .reduce((soma, s) => soma + Number(s.total), 0);
 
-      days.push({ day: dayNames[d.getDay()], value: dayTotal });
+      dadosGrafico.push({ dia: dia.toString(), valor: totalDoDia });
     }
-    setChartData(days);
+    setChartData(dadosGrafico);
   }
+
+  const navegarMes = (direcao: number) => {
+    const novoMes = new Date(mesSelecionado.getFullYear(), mesSelecionado.getMonth() + direcao, 1);
+    const agora = new Date();
+    const mesAtual = new Date(agora.getFullYear(), agora.getMonth(), 1);
+
+    if (novoMes <= mesAtual) {
+      setMesSelecionado(novoMes);
+    }
+  };
+
+  const formatarMesAno = (data: Date) => {
+    return data.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+      .replace(/^\w/, (c) => c.toUpperCase());
+  };
 
   const activeProducts = products.filter((p) => p.ativo);
   const lowStock = products.filter((p) => p.ativo && p.estoque < p.estoque_minimo);
@@ -222,20 +245,78 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="card-metric">
-        <h2 className="font-semibold text-foreground mb-4">Vendas nos últimos 7 dias</h2>
-        <div className="h-64">
+      <div className="bg-[#fff7ed] rounded-2xl shadow-[0_2px_8px_rgba(249,115,22,0.08)] border border-[#fed7aa] p-6">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8">
+          <h2 className="text-xl font-bold text-[#1e3a8a]">Vendas do Mês</h2>
+          
+          <div className="flex items-center gap-4 bg-[#1e3a8a]/5 p-1 rounded-xl">
+            <button
+              onClick={() => navegarMes(-1)}
+              className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-gray-600 active:scale-95"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <span className="text-sm font-semibold text-gray-700 min-w-[120px] text-center">
+              {formatarMesAno(mesSelecionado)}
+            </span>
+            <button
+              onClick={() => navegarMes(1)}
+              disabled={new Date(mesSelecionado.getFullYear(), mesSelecionado.getMonth() + 1, 1) > new Date()}
+              className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all text-gray-600 disabled:opacity-30 disabled:hover:bg-transparent active:scale-95"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="h-[280px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-              <XAxis dataKey="day" axisLine={false} tickLine={false} className="text-xs" />
-              <YAxis axisLine={false} tickLine={false} className="text-xs" tickFormatter={(v) => `R$${v}`} />
-              <Tooltip
-                formatter={(value: number) => [formatCurrency(value), "Vendas"]}
-                contentStyle={{ borderRadius: "0.5rem", border: "1px solid hsl(var(--border))" }}
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorValor" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.7} />
+                  <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
+              <XAxis 
+                dataKey="dia" 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#9ca3af' }}
+                dy={10}
               />
-              <Bar dataKey="value" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
-            </BarChart>
+              <YAxis 
+                axisLine={false} 
+                tickLine={false} 
+                tick={{ fontSize: 12, fill: '#9ca3af' }}
+                tickFormatter={(v) => `R$${v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v}`}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="bg-[#fff7ed] p-4 shadow-xl border border-[#fed7aa] rounded-xl">
+                        <p className="text-xs text-gray-400 font-medium mb-1">Dia {label}</p>
+                        <p className="text-sm font-bold text-orange-600">
+                          {formatCurrency(payload[0].value as number)}
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Area 
+                type="monotone" 
+                dataKey="valor" 
+                stroke="#f97316" 
+                strokeWidth={3}
+                fillOpacity={1} 
+                fill="url(#colorValor)" 
+                animationDuration={1500}
+              />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>

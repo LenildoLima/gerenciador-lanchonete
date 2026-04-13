@@ -152,6 +152,17 @@ function Receipt({ data }: { data: ReceiptData }) {
 
 export default function NewSale() {
   const { usuario } = useAuth();
+  const CATEGORY_STYLES: Record<string, { bg: string; border: string; text: string; bgSoft: string }> = {
+    Bebidas: { bg: "#3b82f6", border: "#bfdbfe", text: "#1d4ed8", bgSoft: "#eff6ff" },
+    Lanches: { bg: "#f97316", border: "#fed7aa", text: "#c2410c", bgSoft: "#fff7ed" },
+    Éxodo: { bg: "#6366f1", border: "#c7d2fe", text: "#4338ca", bgSoft: "#eef2ff" },
+    Porções: { bg: "#22c55e", border: "#bbf7d0", text: "#15803d", bgSoft: "#f0fdf4" },
+    Sobremesas: { bg: "#ec4899", border: "#fbcfe8", text: "#be185d", bgSoft: "#fdf2f8" },
+    Lançamentos: { bg: "#f59e0b", border: "#fde68a", text: "#b45309", bgSoft: "#fffbeb" },
+    Default: { bg: "#94a3b8", border: "#e2e8f0", text: "#475569", bgSoft: "#f8fafc" }
+  };
+
+  const getStyle = (name: string) => CATEGORY_STYLES[name] || CATEGORY_STYLES.Default;
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
@@ -418,25 +429,62 @@ export default function NewSale() {
         </div>
 
         <div className="flex gap-2 mb-4 flex-wrap pb-2 border-b border-border/50 flex-none">
-          <button onClick={() => setSelectedCategoryId("Todos")} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedCategoryId === "Todos" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground border border-border hover:bg-muted"}`}>Todos</button>
-          {categories.map((c) => (
-            <button key={c.id} onClick={() => setSelectedCategoryId(c.id)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedCategoryId === c.id ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground border border-border hover:bg-muted"}`}>{c.nome}</button>
-          ))}
+          <button 
+            onClick={() => setSelectedCategoryId("Todos")} 
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${selectedCategoryId === "Todos" ? "bg-primary text-primary-foreground shadow-sm" : "bg-card text-muted-foreground border border-border hover:bg-muted"}`}
+          >
+            Todos
+          </button>
+          {categories.map((c) => {
+            const style = getStyle(c.nome);
+            const isSelected = selectedCategoryId === c.id;
+            return (
+              <button 
+                key={c.id} 
+                onClick={() => setSelectedCategoryId(c.id)} 
+                style={{
+                  background: isSelected ? style.bg : style.bgSoft,
+                  color: isSelected ? "#fff" : style.text,
+                  borderColor: isSelected ? style.bg : style.border,
+                }}
+                className={`px-3 py-1.5 rounded-full text-sm font-semibold border transition-all hover:brightness-95`}
+              >
+                {c.nome}
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-muted-foreground/20">
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 px-1">
-            {filtered.map((p) => (
-              <button key={p.id} onClick={() => addToCart(p)} disabled={p.estoque <= 0}
-                className={`bg-card rounded-lg p-1.5 border border-border text-left transition-all hover:shadow-md ${p.estoque <= 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:ring-2 hover:ring-primary/30"}`}>
-                <div className="flex items-start justify-between mb-0.5">
-                  <span className={`${getCategoriaBadgeClass(p.categorias?.nome || '')} text-[9px] px-1 py-0`}>{p.categorias?.nome || 'Geral'}</span>
-                  <span className="text-[9px] text-muted-foreground font-medium">{p.estoque} un.</span>
-                </div>
-                <p className="font-semibold text-[11px] leading-tight truncate" title={p.nome}>{p.nome}</p>
-                <p className="text-orange-500 font-bold text-xs mt-0.5">{formatCurrency(p.preco)}</p>
-              </button>
-            ))}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3 px-1">
+            {filtered.map((p) => {
+              const catName = p.categorias?.nome || 'Geral';
+              const style = getStyle(catName);
+              return (
+                <button 
+                  key={p.id} 
+                  onClick={() => addToCart(p)} 
+                  disabled={p.estoque <= 0}
+                  style={{
+                    background: style.bgSoft,
+                    borderColor: style.border,
+                  }}
+                  className={`rounded-xl p-3 border-2 text-left transition-all hover:shadow-lg ${p.estoque <= 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02] active:scale-95"}`}
+                >
+                  <div className="flex items-start justify-between mb-1.5">
+                    <span 
+                      style={{ background: style.bg, color: "#fff" }}
+                      className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-md"
+                    >
+                      {catName}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground font-bold">{p.estoque} un.</span>
+                  </div>
+                  <p className="font-bold text-sm leading-tight truncate mb-1 text-[#1e3a8a]" title={p.nome}>{p.nome}</p>
+                  <p style={{ color: style.text }} className="font-black text-base">{formatCurrency(p.preco)}</p>
+                </button>
+              );
+            })}
           </div>
           {filtered.length === 0 && <div className="flex flex-col items-center justify-center py-12 text-muted-foreground"><Search className="w-12 h-12 mb-2 opacity-20" /><p>Nenhum produto encontrado</p></div>}
         </div>

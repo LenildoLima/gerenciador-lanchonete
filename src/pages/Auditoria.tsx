@@ -87,7 +87,7 @@ export default function Auditoria() {
       entrega: "bg-sky-100 text-sky-700 border-sky-200",
     };
     return (
-      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${colors[tipo] || "bg-gray-100 text-gray-700"}`}>
+      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${colors[tipo] || "bg-[#1e3a8a]/10 text-[#1e3a8a] border-[#1e3a8a]/20"}`}>
         {tipo}
       </span>
     );

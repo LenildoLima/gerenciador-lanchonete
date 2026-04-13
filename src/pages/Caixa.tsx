@@ -93,14 +93,7 @@ export default function Caixa() {
       if (aberto) {
         setCaixaAberto(aberto as any);
         
-        // 2. Buscar ID do método de pagamento "Dinheiro"
-        const { data: pgtos } = await (supabase as any)
-          .from("formas_pagamento")
-          .select("id")
-          .ilike("nome", "Dinheiro")
-          .maybeSingle();
-
-        // Buscar movimentações
+        // Buscar todas as movimentações
         const { data: movs } = await (supabase as any)
           .from("caixa_movimentacoes")
           .select("*")
@@ -108,19 +101,17 @@ export default function Caixa() {
           .order("criado_em", { ascending: false });
         setMovimentacoes((movs as any[]) || []);
         
-        // Buscar vendas concluídas em dinheiro desde a abertura
-        let vendasQuery = (supabase as any)
+        // Buscar TODAS as vendas concluídas desde a abertura (incluindo taxas de entrega)
+        const { data: vendas } = await (supabase as any)
           .from("vendas")
-          .select("total")
+          .select("total, entregas(taxa)")
           .eq("situacao", "Concluída")
           .gte("criado_em", (aberto as any).aberto_em);
-        
-        if (pgtos) {
-          vendasQuery = vendasQuery.eq("forma_pagamento_id", (pgtos as any).id);
-        }
 
-        const { data: vendas } = await vendasQuery;
-        const totalVendas = (vendas as any[])?.reduce((acc, v) => acc + v.total, 0) || 0;
+        const totalVendas = (vendas as any[])?.reduce((acc, v) => {
+          const taxa = v.entregas?.[0]?.taxa || 0;
+          return acc + v.total + taxa;
+        }, 0) || 0;
         
         // Sincronizar total de vendas no estado
         setCaixaAberto(prev => prev ? {...prev, total_vendas: totalVendas} : null);
@@ -345,8 +336,8 @@ export default function Caixa() {
                         <td className="p-4 font-bold">{c.valor_fechamento ? formatCurrency(c.valor_fechamento) : <span className="text-orange-500 italic">Em curso...</span>}</td>
                         <td className={`p-4 text-right font-black text-md ${
                           c.status === 'fechado' 
-                            ? (c.diferenca && c.diferenca < 0 ? "text-red-500" : c.diferenca && c.diferenca > 0 ? "text-green-500" : "text-gray-400")
-                            : "text-gray-300"
+                            ? (c.diferenca && c.diferenca < 0 ? "text-red-500" : c.diferenca && c.diferenca > 0 ? "text-green-500" : "text-[#1e3a8a]/40")
+                            : "text-[#1e3a8a]/30"
                         }`}>
                           {c.status === 'fechado' ? formatCurrency(c.diferenca || 0) : "—"}
                         </td>
@@ -361,7 +352,7 @@ export default function Caixa() {
 
         {/* Modal Abrir */}
         {modalAbrir && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#1e3a8a]/40 backdrop-blur-sm">
             <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">
@@ -460,13 +451,13 @@ export default function Caixa() {
         <div>
           <p className="text-orange-100 font-bold uppercase tracking-widest text-xs mb-1">Saldo Esperado em Espécie</p>
           <h2 className="text-5xl font-black tracking-tighter">{formatCurrency(saldoEsperado)}</h2>
-          <p className="text-orange-200/80 text-sm mt-3 font-medium">(Abertura + Vendas + Suprimentos - Sangrias)</p>
+          <p className="text-orange-200/80 text-sm mt-3 font-medium">(Abertura + Vendas + Taxas de Entrega + Suprimentos - Sangrias)</p>
         </div>
         <div className="flex gap-3">
           <Button onClick={() => setModalMov({aberto: true, tipo: 'suprimento'})} className="bg-white text-orange-600 hover:bg-orange-50 font-black py-7 px-8 rounded-2xl gap-2 shadow-lg">
             <Plus size={20} /> SUPRIMENTO
           </Button>
-          <Button onClick={() => setModalMov({aberto: true, tipo: 'sangria'})} className="bg-black/10 text-white hover:bg-black/20 border border-white/20 font-black py-7 px-8 rounded-2xl gap-2 backdrop-blur-sm">
+          <Button onClick={() => setModalMov({aberto: true, tipo: 'sangria'})} className="bg-[#1e3a8a]/10 text-white hover:bg-[#1e3a8a]/20 border border-white/20 font-black py-7 px-8 rounded-2xl gap-2 backdrop-blur-sm">
             <Minus size={20} /> SANGRIA
           </Button>
         </div>
@@ -523,7 +514,7 @@ export default function Caixa() {
 
       {/* Modais Movimentação */}
       {modalMov.aberto && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#1e3a8a]/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200">
             <h2 className="text-2xl font-black mb-6 flex items-center gap-3">
               {modalMov.tipo === 'suprimento' ? (
@@ -568,7 +559,7 @@ export default function Caixa() {
 
       {/* Modal Fechamento */}
       {modalFechar && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#1e3a8a]/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-lg p-10 shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh]">
             <h2 className="text-2xl font-black mb-2">Conferência e Fechamento</h2>
             <p className="text-muted-foreground text-sm mb-8 font-medium">Verifique os valores antes de encerrar o turno de trabalho.</p>

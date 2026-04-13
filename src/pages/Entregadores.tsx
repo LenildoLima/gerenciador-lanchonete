@@ -45,6 +45,84 @@ interface Pagamento {
   criado_em: string;
 }
 
+interface EntregaDetalhada {
+  id: string;
+  criado_em: string;
+  vendas: {
+    cliente: string;
+  };
+  taxa_entrega: number;
+}
+
+interface ComprovanteData {
+  entregador: Entregador;
+  adminNome: string;
+  periodoInicio: string;
+  periodoFim: string;
+  valorTotal: number;
+  dataEmissao: string;
+  entregas: EntregaDetalhada[];
+}
+
+// ======= CSS PRINT STYLE =======
+const printStyle = `
+@media print {
+  body * { visibility: hidden !important; }
+  #receipt-content, #receipt-content * { visibility: visible !important; }
+  #receipt-content { position: fixed; left: 0; top: 0; width: 80mm; font-family: monospace !important; font-size: 11px !important; color: black !important; }
+  @page { margin: 4mm; size: 80mm auto; }
+}
+`;
+
+// ======= RECEIPT COMPONENT =======
+function Receipt({ data }: { data: ComprovanteData }) {
+  const sep = "=".repeat(32);
+  const sepLight = "-".repeat(32);
+  const totalEntregas = data.entregas.length;
+
+  return (
+    <div id="receipt-content" style={{ fontFamily: "monospace", fontSize: 11, width: "100%", maxWidth: 300, padding: "8px 0", background: "white", color: "black" }}>
+      <div style={{ textAlign: "center" }}>{sep}</div>
+      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: 13 }}>LaunchApp</div>
+      <div style={{ textAlign: "center", fontSize: 10 }}>Gestão de Lanchonete</div>
+      <div style={{ textAlign: "center" }}>{sep}</div>
+      <div style={{ textAlign: "center", fontWeight: "bold" }}>COMPROVANTE DE PAGAMENTO</div>
+      <div style={{ textAlign: "center" }}>{sepLight}</div>
+      <div style={{ fontSize: 9 }}>Data: {data.dataEmissao}</div>
+      <div style={{ fontSize: 9 }}>Autorizado por: {data.adminNome}</div>
+      <div style={{ textAlign: "center" }}>{sepLight}</div>
+      <div style={{ fontWeight: "bold" }}>ENTREGADOR:</div>
+      <div>Nome: {data.entregador.nome}</div>
+      {data.entregador.telefone && <div>Tel: {data.entregador.telefone}</div>}
+      <div style={{ textAlign: "center" }}>{sepLight}</div>
+      <div style={{ fontWeight: "bold" }}>PERÍODO:</div>
+      <div>De: {new Date(data.periodoInicio).toLocaleDateString("pt-BR")}</div>
+      <div>Até: {new Date(data.periodoFim).toLocaleDateString("pt-BR")}</div>
+      <div style={{ textAlign: "center" }}>{sepLight}</div>
+      <div style={{ fontWeight: "bold" }}>Entregas realizadas:</div>
+      <div style={{ marginTop: 4 }}>
+        {data.entregas.map((ent, idx) => (
+          <div key={idx} style={{ marginBottom: 4, fontSize: 10 }}>
+            • {new Date(ent.criado_em).toLocaleDateString("pt-BR")} | {ent.vendas?.cliente || "Consumidor"}
+            <br />
+            &nbsp; Taxa: {formatCurrency(ent.taxa_entrega)}
+          </div>
+        ))}
+      </div>
+      <div style={{ textAlign: "center" }}>{sepLight}</div>
+      <div style={{ fontWeight: "bold" }}>TOTAL DE ENTREGAS: {totalEntregas}</div>
+      <div style={{ fontWeight: "extrabold", fontSize: 12 }}>VALOR TOTAL: {formatCurrency(data.valorTotal)}</div>
+      <div style={{ textAlign: "center" }}>{sep}</div>
+      <div style={{ marginTop: 20, textAlign: "center" }}>
+        Assinatura entregador:
+        <br /><br />
+        _______________________________
+      </div>
+      <div style={{ textAlign: "center", marginTop: 10 }}>{sep}</div>
+    </div>
+  );
+}
+
 export default function Entregadores() {
   const { usuario, isAdmin } = useAuth();
   const [entregadores, setEntregadores] = useState<Entregador[]>([]);
@@ -53,6 +131,8 @@ export default function Entregadores() {
   // Modais
   const [modalNovo, setModalNovo] = useState(false);
   const [modalAcerto, setModalAcerto] = useState<{aberto: boolean, entregador: Entregador | null}>({aberto: false, entregador: null});
+  const [modalComprovante, setModalComprovante] = useState(false);
+  const [dadosComprovante, setDadosComprovante] = useState<ComprovanteData | null>(null);
   
   // Form Entregador
   const [editando, setEditando] = useState<Entregador | null>(null);
@@ -184,7 +264,34 @@ export default function Entregadores() {
       });
 
       toast.success("Pagamento realizado com sucesso!");
+      
+      // 5. Preparar dados do comprovante
+      const { data: entregas } = await (supabase as any)
+        .from("entregas")
+        .select(`
+          id,
+          criado_em,
+          taxa_entrega,
+          vendas(cliente)
+        `)
+        .eq("entregador_id", e.id)
+        .eq("status", "entregue")
+        .gte("criado_em", new Date(dataInicio).toISOString())
+        .lte("criado_em", new Date(new Date(dataFim).setHours(23, 59, 59, 999)).toISOString());
+
+      const now = new Date();
+      setDadosComprovante({
+        entregador: e,
+        adminNome: usuario.nome,
+        periodoInicio: dataInicio,
+        periodoFim: dataFim,
+        valorTotal: valorPagar,
+        dataEmissao: now.toLocaleDateString("pt-BR") + " " + now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        entregas: (entregas as any[]) || []
+      });
+
       setModalAcerto({aberto: false, entregador: null});
+      setModalComprovante(true);
       fetchEntregadores();
     } catch (err) {
       toast.error("Erro ao realizar acerto");
@@ -259,7 +366,7 @@ export default function Entregadores() {
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground" onClick={() => abrirEdicao(e)}>
                         <Edit size={16} />
                       </Button>
-                      <button onClick={() => toggleAtivo(e)} className={`p-1.5 transition-colors ${e.ativo ? "text-green-500 hover:text-green-600" : "text-gray-300 hover:text-gray-400"}`}>
+                      <button onClick={() => toggleAtivo(e)} className={`p-1.5 transition-colors ${e.ativo ? "text-green-500 hover:text-green-600" : "text-[#1e3a8a]/30 hover:text-[#1e3a8a]/50"}`}>
                         {e.ativo ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
                       </button>
                     </div>
@@ -278,7 +385,7 @@ export default function Entregadores() {
 
       {/* MODAL NOVO/EDITAR */}
       {modalNovo && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#1e3a8a]/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200">
             <h2 className="text-2xl font-black mb-6 flex items-center gap-3">
               <Bike className="text-primary" /> {editando ? "Editar Entregador" : "Novo Entregador"}
@@ -311,7 +418,7 @@ export default function Entregadores() {
 
       {/* MODAL ACERTO */}
       {modalAcerto.aberto && modalAcerto.entregador && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#1e3a8a]/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200">
             <h2 className="text-2xl font-black mb-2 flex items-center gap-3">
               <Wallet className="text-orange-600" /> Acerto de Pagamento
@@ -359,6 +466,51 @@ export default function Entregadores() {
                 <Button variant="outline" className="flex-1 py-6 rounded-2xl font-bold" onClick={() => setModalAcerto({aberto: false, entregador: null})}>Cancelar</Button>
                 <Button className="flex-1 py-6 rounded-2xl font-black text-white" onClick={handleAcerto}>CONFIRMAR PAGAMENTO</Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL COMPROVANTE */}
+      {modalComprovante && dadosComprovante && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#1e3a8a]/40 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h2 className="text-2xl font-black mb-2 flex items-center gap-3 text-green-600">
+              <CheckCircle2 /> Pagamento Confirmado!
+            </h2>
+            <p className="text-muted-foreground text-sm mb-6">O comprovante de acerto está pronto para impressão.</p>
+            
+            <div className="border border-border rounded-2xl p-4 bg-white overflow-auto max-h-[400px] mb-6 shadow-inner">
+              <Receipt data={dadosComprovante} />
+            </div>
+
+            <div className="flex gap-4">
+              <Button 
+                variant="outline" 
+                className="flex-1 py-6 rounded-2xl font-bold" 
+                onClick={() => {
+                  setModalComprovante(false);
+                  setDadosComprovante(null);
+                }}
+              >
+                Fechar
+              </Button>
+              <Button 
+                className="flex-1 py-6 rounded-2xl font-black text-white bg-orange-500 hover:bg-orange-600 shadow-lg shadow-orange-500/30" 
+                onClick={() => {
+                  const style = document.createElement("style");
+                  style.innerHTML = printStyle;
+                  document.head.appendChild(style);
+                  window.print();
+                  setTimeout(() => {
+                    document.head.removeChild(style);
+                    setModalComprovante(false);
+                    setDadosComprovante(null);
+                  }, 500);
+                }}
+              >
+                🖨️ IMPRIMIR
+              </Button>
             </div>
           </div>
         </div>

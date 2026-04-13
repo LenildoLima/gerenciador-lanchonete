@@ -468,7 +468,7 @@ export default function UsersPage() {
             {solicitacoes.map((sol, i) => (
               <div key={sol.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1rem 1.25rem", borderBottom: i < solicitacoes.length - 1 ? "1px solid #f9fafb" : "none" }}>
                 <div>
-                  <div style={{ fontWeight: 700, color: "#111827", fontSize: "0.95rem" }}>{sol.usuarios?.nome || "Desconhecido"}</div>
+                  <div style={{ fontWeight: 700, color: "#1e3a8a", fontSize: "0.95rem" }}>{sol.usuarios?.nome || "Desconhecido"}</div>
                   <div style={{ color: "#6b7280", fontSize: "0.85rem", marginTop: "0.1rem" }}>{sol.email} • Solicitado em {new Date(sol.criado_em).toLocaleString("pt-BR")}</div>
                 </div>
                 <button
@@ -509,17 +509,17 @@ export default function UsersPage() {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
-                <tr style={{ background: "#fafafa", borderBottom: "1px solid #f3f4f6" }}>
+                <tr style={{ background: "#1e3a8a", borderBottom: "1px solid #1e40af" }}>
                   {["NOME", "EMAIL", "PERFIL", "STATUS", "AÇÕES"].map((col) => (
                     <th
                       key={col}
                       style={{
-                        padding: "0.9rem 1.25rem",
+                        padding: "1rem 1.25rem",
                         textAlign: "left",
-                        fontSize: "0.72rem",
+                        fontSize: "0.75rem",
                         fontWeight: 700,
-                        color: "#9ca3af",
-                        letterSpacing: "0.06em",
+                        color: "#fff",
+                        letterSpacing: "0.05em",
                         whiteSpace: "nowrap",
                       }}
                     >
@@ -533,12 +533,13 @@ export default function UsersPage() {
                   <tr
                     key={u.id}
                     style={{
-                      borderBottom: i < usuarios.length - 1 ? "1px solid #f9fafb" : "none",
-                      background: !u.ativo ? "#fffbeb" : "transparent",
+                      borderBottom: "1px solid #fed7aa",
+                      background: i % 2 === 0 ? "#fff7ed" : "#fffcf8",
                       transition: "background 0.15s",
+                      opacity: u.ativo ? 1 : 0.8,
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = !u.ativo ? "#fef3c7" : "#fffbf7")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = !u.ativo ? "#fffbeb" : "transparent")}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#ffedde")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = i % 2 === 0 ? "#fff7ed" : "#fffcf8")}
                   >
                     <td style={{ padding: "1rem 1.25rem" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -561,7 +562,7 @@ export default function UsersPage() {
                         >
                           {u.nome.charAt(0).toUpperCase()}
                         </div>
-                        <span style={{ fontWeight: 600, color: "#111827" }}>{u.nome}</span>
+                        <span style={{ fontWeight: 600, color: "#1e3a8a" }}>{u.nome}</span>
                         {u.id === usuario?.id && (
                           <span style={{
                             fontSize: "0.65rem",
@@ -652,7 +653,7 @@ export default function UsersPage() {
           >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 style={{ fontWeight: 800, fontSize: "1.2rem", color: "#111827" }}>
+                <h2 style={{ fontWeight: 800, fontSize: "1.2rem", color: "#1e3a8a" }}>
                   {usuarioSelecionado ? "Editar Usuário" : "Novo Usuário"}
                 </h2>
                 <p style={{ color: "#9ca3af", fontSize: "0.85rem" }}>
@@ -671,7 +672,7 @@ export default function UsersPage() {
 
               {/* Nome */}
               <div>
-                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" }}>
+                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#1e3a8a", marginBottom: "0.35rem" }}>
                   Nome *
                 </label>
                 <input
@@ -686,7 +687,7 @@ export default function UsersPage() {
 
               {/* Email */}
               <div>
-                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" }}>
+                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#1e3a8a", marginBottom: "0.35rem" }}>
                   Email *
                 </label>
                 <input
@@ -696,13 +697,13 @@ export default function UsersPage() {
                   placeholder="email@exemplo.com"
                   autoComplete="off"
                   disabled={usuarioSelecionado !== null}
-                  style={{ ...inputStyle, background: usuarioSelecionado ? "#f3f4f6" : "#fff", color: usuarioSelecionado ? "#6b7280" : "#111827", cursor: usuarioSelecionado ? "not-allowed" : "text" }}
+                  style={{ ...inputStyle, background: usuarioSelecionado ? "#f3f4f6" : "#fff", color: usuarioSelecionado ? "#6b7280" : "#1e3a8a", cursor: usuarioSelecionado ? "not-allowed" : "text" }}
                 />
               </div>
 
               {/* Senha */}
               <div>
-                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" }}>
+                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#1e3a8a", marginBottom: "0.35rem" }}>
                   {usuarioSelecionado ? "Nova Senha" : "Senha *"} <span style={{ color: "#9ca3af", fontWeight: 400 }}>{usuarioSelecionado ? "(opcional, mínimo 6 caracteres)" : "(mínimo 6 caracteres)"}</span>
                 </label>
                 <div style={{ position: "relative" }}>
@@ -726,7 +727,7 @@ export default function UsersPage() {
 
               {/* Perfil */}
               <div>
-                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" }}>
+                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#1e3a8a", marginBottom: "0.35rem" }}>
                   Perfil *
                 </label>
                 <select
@@ -741,7 +742,7 @@ export default function UsersPage() {
 
               {/* Toggle Ativo */}
               <div className="flex items-center justify-between" style={{ padding: "0.75rem 0", borderTop: "1px solid #f3f4f6" }}>
-                <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "#374151" }}>Usuário ativo</span>
+                <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "#1e3a8a" }}>Usuário ativo</span>
                 <button
                   type="button"
                   onClick={() => setNovoAtivo(!novoAtivo)}
@@ -844,7 +845,7 @@ export default function UsersPage() {
           >
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 style={{ fontWeight: 800, fontSize: "1.2rem", color: "#111827" }}>
+                <h2 style={{ fontWeight: 800, fontSize: "1.2rem", color: "#1e3a8a" }}>
                   Redefinir senha de {solicitacaoSelecionada.usuarios?.nome}
                 </h2>
                 <p style={{ color: "#9ca3af", fontSize: "0.85rem" }}>
@@ -858,7 +859,7 @@ export default function UsersPage() {
 
             <form onSubmit={confirmarResetSenha} className="space-y-4" autoComplete="off">
               <div>
-                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" }}>
+                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#1e3a8a", marginBottom: "0.35rem" }}>
                   Nova senha temporária *
                 </label>
                 <div style={{ display: "flex", gap: "0.5rem" }}>
@@ -908,7 +909,7 @@ export default function UsersPage() {
               </div>
 
               <div>
-                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#374151", marginBottom: "0.35rem" }}>
+                <label style={{ display: "block", fontSize: "0.83rem", fontWeight: 600, color: "#1e3a8a", marginBottom: "0.35rem" }}>
                   Confirmar nova senha *
                 </label>
                 <div style={{ position: "relative" }}>
@@ -993,7 +994,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: "0.65rem",
   border: "1.5px solid #e5e7eb",
   fontSize: "0.9rem",
-  color: "#111827",
+  color: "#1e3a8a",
   outline: "none",
   background: "#fff",
   boxSizing: "border-box",
