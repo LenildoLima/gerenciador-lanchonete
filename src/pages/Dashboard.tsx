@@ -10,8 +10,8 @@ interface Product {
   categoria_id: string;
   categorias?: { nome: string };
   ativo: boolean;
-  estoque: number;
   estoque_minimo: number;
+  estoque?: { saldo: number };
 }
 
 interface Sale {
@@ -83,7 +83,7 @@ export default function Dashboard() {
     ultimoDiaMes.setHours(23, 59, 59, 999);
 
     const [productsRes, allNeededSalesRes, todaySalesRes] = await Promise.all([
-      supabase.from("produtos").select("*, categorias(nome)"),
+      supabase.from("produtos").select("*, categorias(nome), estoque(saldo)"),
       supabase
         .from("vendas")
         .select("*, formas_pagamento(nome), entregas(*)")
@@ -164,7 +164,7 @@ export default function Dashboard() {
   };
 
   const activeProducts = products.filter((p) => p.ativo);
-  const lowStock = products.filter((p) => p.ativo && p.estoque < p.estoque_minimo);
+  const lowStock = products.filter((p) => p.ativo && (p.estoque?.saldo ?? 0) < p.estoque_minimo);
   const todayTotal = todaySales.reduce((s, v) => s + Number(v.total), 0);
   const totalRevenue = allSales.reduce((s, v) => s + Number(v.total), 0);
 
@@ -338,7 +338,7 @@ export default function Dashboard() {
                     <p className="text-xs text-muted-foreground">{p.categorias?.nome || 'Geral'}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-destructive">{p.estoque}</p>
+                    <p className="text-sm font-bold text-destructive">{p.estoque?.saldo ?? 0}</p>
                     <p className="text-xs text-muted-foreground">Mínimo: {p.estoque_minimo}</p>
                   </div>
                 </div>

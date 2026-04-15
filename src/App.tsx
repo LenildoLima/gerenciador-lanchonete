@@ -20,6 +20,7 @@ import Auditoria from "./pages/Auditoria";
 import Caixa from "./pages/Caixa";
 import Entregadores from "./pages/Entregadores";
 import Entregas from "./pages/Entregas";
+import Entradas from "./pages/Entradas";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -160,6 +161,16 @@ const App = () => (
               }
             />
 
+            <Route
+              path="/entradas"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Entradas />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

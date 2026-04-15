@@ -82,8 +82,8 @@ export default function Vendas() {
   }
 
   async function cancelVenda(id: string) {
-    if (!confirm("Deseja cancelar esta venda? O estoque NÃO será estornado.")) return;
-    const { error } = await supabase.from("vendas").update({ situacao: "Cancelada" }).eq("id", id);
+    if (!confirm("Deseja cancelar esta venda? O estoque será ESTORNADO automaticamente.")) return;
+    const { error } = await (supabase as any).rpc("cancelar_venda", { p_venda_id: id });
     if (error) {
       toast.error("Erro ao cancelar venda");
       return;
@@ -103,12 +103,12 @@ export default function Vendas() {
         usuario_id: usuario.id,
         usuario_nome: usuario.nome,
         tipo: "estoque",
-        acao: "Estorno de estoque (cancelamento)",
+        acao: "Estorno de estoque (cancelamento de venda)",
         detalhes: { venda_id: id }
       });
     }
 
-    toast.success("Venda cancelada");
+    toast.success("Venda cancelada e estoque estornado!");
     fetchVendas();
   }
 

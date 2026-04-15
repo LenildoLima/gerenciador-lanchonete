@@ -24,7 +24,6 @@ export type Database = {
           estoque_minimo: number
           nome: string
           preco: number
-          estoque: number
         }
         Insert: {
           ativo?: boolean
@@ -35,7 +34,6 @@ export type Database = {
           estoque_minimo?: number
           nome: string
           preco?: number
-          estoque?: number
         }
         Update: {
           ativo?: boolean
@@ -46,7 +44,6 @@ export type Database = {
           estoque_minimo?: number
           nome?: string
           preco?: number
-          estoque?: number
         }
         Relationships: [
           {
@@ -54,6 +51,92 @@ export type Database = {
             columns: ["categoria_id"]
             isOneToOne: false
             referencedRelation: "categorias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estoque: {
+        Row: {
+          produto_id: string
+          saldo: number
+          atualizado_em: string
+        }
+        Insert: {
+          produto_id: string
+          saldo?: number
+          atualizado_em?: string
+        }
+        Update: {
+          produto_id?: string
+          saldo?: number
+          atualizado_em?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estoque_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: true
+            referencedRelation: "produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entradas_nota: {
+        Row: {
+          id: string
+          fornecedor: string | null
+          observacoes: string | null
+          criado_em: string
+        }
+        Insert: {
+          id?: string
+          fornecedor?: string | null
+          observacoes?: string | null
+          criado_em?: string
+        }
+        Update: {
+          id?: string
+          fornecedor?: string | null
+          observacoes?: string | null
+          criado_em?: string
+        }
+        Relationships: []
+      }
+      entradas_nota_item: {
+        Row: {
+          id: string
+          entrada_id: string
+          produto_id: string
+          quantidade: number
+          custo_unitario: number
+        }
+        Insert: {
+          id?: string
+          entrada_id: string
+          produto_id: string
+          quantidade: number
+          custo_unitario?: number
+        }
+        Update: {
+          id?: string
+          entrada_id?: string
+          produto_id?: string
+          quantidade?: number
+          custo_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entradas_nota_item_entrada_id_fkey"
+            columns: ["entrada_id"]
+            isOneToOne: false
+            referencedRelation: "entradas_nota"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entradas_nota_item_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos"
             referencedColumns: ["id"]
           },
         ]

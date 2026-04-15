@@ -21,15 +21,15 @@ interface Product {
   id: string;
   nome: string;
   categoria_id: string;
-  categorias?: { nome: string }; // For joined results
+  categorias?: { nome: string };
   preco: number;
   custo: number;
-  estoque: number;
   estoque_minimo: number;
   ativo: boolean;
+  estoque?: { saldo: number };
 }
 
-const emptyProduct = { nome: "", categoria_id: "", preco: 0, custo: 0, estoque: 0, estoque_minimo: 5, ativo: true };
+const emptyProduct = { nome: "", categoria_id: "", preco: 0, custo: 0, estoque_minimo: 5, ativo: true };
 
 export default function Products() {
   const { usuario } = useAuth();
@@ -47,7 +47,7 @@ export default function Products() {
   async function fetchData() {
     console.log("Iniciando busca de dados...");
     const [prodRes, catRes] = await Promise.all([
-      supabase.from("produtos").select("*, categorias(nome)").order("nome"),
+      supabase.from("produtos").select("*, categorias(nome), estoque(saldo)").order("nome"),
       supabase.from("categorias").select("*").order("nome")
     ]);
     
@@ -76,7 +76,6 @@ export default function Products() {
       categoria_id: p.categoria_id, 
       preco: p.preco, 
       custo: p.custo, 
-      estoque: p.estoque, 
       estoque_minimo: p.estoque_minimo, 
       ativo: p.ativo 
     });
@@ -107,7 +106,6 @@ export default function Products() {
         if (editing.categoria_id !== form.categoria_id) alteracoes.categoria = { para: categories.find(c => c.id === form.categoria_id)?.nome };
         if (editing.preco !== form.preco) alteracoes.preco = { de: editing.preco, para: form.preco };
         if (editing.custo !== form.custo) alteracoes.custo = { de: editing.custo, para: form.custo };
-        if (editing.estoque !== form.estoque) alteracoes.estoque = { de: editing.estoque, para: form.estoque };
         if (editing.ativo !== form.ativo) alteracoes.ativo = { de: editing.ativo, para: form.ativo };
 
         await registrarAuditoria({
@@ -140,7 +138,6 @@ export default function Products() {
             nome: form.nome,
             categoria: categories.find(c => c.id === form.categoria_id)?.nome,
             preco: form.preco,
-            estoque: form.estoque
           }
         });
       }
@@ -220,8 +217,8 @@ export default function Products() {
                   <td className="p-3 text-muted-foreground">{p.categorias?.nome || '-'}</td>
                   <td className="p-3">{formatCurrency(p.preco)}</td>
                   <td className="p-3">
-                    <span className={p.estoque < p.estoque_minimo ? "text-destructive font-bold" : ""}>
-                      {p.estoque}
+                    <span className={(p.estoque?.saldo ?? 0) < p.estoque_minimo ? "text-destructive font-bold" : ""}>
+                      {p.estoque?.saldo ?? 0}
                     </span>
                   </td>
                   <td className="p-3">
@@ -282,15 +279,10 @@ export default function Products() {
                 <Input type="number" step="0.01" value={form.custo} onChange={(e) => setForm({ ...form, custo: Number(e.target.value) })} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Estoque</Label>
-                <Input type="number" value={form.estoque} onChange={(e) => setForm({ ...form, estoque: Number(e.target.value) })} />
-              </div>
-              <div>
-                <Label>Estoque Mínimo</Label>
-                <Input type="number" value={form.estoque_minimo} onChange={(e) => setForm({ ...form, estoque_minimo: Number(e.target.value) })} />
-              </div>
+            <div>
+              <Label>Estoque Mínimo (alerta)</Label>
+              <Input type="number" value={form.estoque_minimo} onChange={(e) => setForm({ ...form, estoque_minimo: Number(e.target.value) })} />
+              <p className="text-xs text-muted-foreground mt-1">O saldo do estoque é gerenciado pelas Entradas de Mercadoria</p>
             </div>
             <div className="flex items-center gap-3">
               <Switch checked={form.ativo} onCheckedChange={(v) => setForm({ ...form, ativo: v })} />

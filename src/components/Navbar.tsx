@@ -14,7 +14,8 @@ import {
   ChevronDown, 
   Settings, 
   UserCog,
-  User 
+  User,
+  PackagePlus
 } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
@@ -36,6 +37,7 @@ const dropdownGroups = [
     icon: Package,
     items: [
       { title: "Produtos", url: "/produtos", icon: Package, color: "#d97706", perfis: ["admin"] },
+      { title: "Entradas", url: "/entradas", icon: PackagePlus, color: "#059669", perfis: ["admin"] },
       { title: "Entregadores", url: "/entregadores", icon: Bike, color: "#0891b2", perfis: ["admin"] },
     ]
   },

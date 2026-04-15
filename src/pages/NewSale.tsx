@@ -17,7 +17,7 @@ interface Product {
   categoria_id: string;
   categorias?: { nome: string };
   preco: number;
-  estoque: number;
+  estoque?: { saldo: number };
   ativo: boolean;
 }
 interface Category { id: string; nome: string; }
@@ -214,7 +214,7 @@ export default function NewSale() {
 
   async function fetchInitialData() {
     const [prodRes, catRes, payRes] = await Promise.all([
-      supabase.from("produtos").select("*, categorias(nome)").eq("ativo", true).order("nome"),
+      supabase.from("produtos").select("*, categorias(nome), estoque(saldo)").eq("ativo", true).order("nome"),
       supabase.from("categorias").select("*").order("nome"),
       supabase.from("formas_pagamento").select("*").order("nome"),
     ]);
@@ -464,12 +464,12 @@ export default function NewSale() {
                 <button 
                   key={p.id} 
                   onClick={() => addToCart(p)} 
-                  disabled={p.estoque <= 0}
+                  disabled={(p.estoque?.saldo ?? 0) <= 0}
                   style={{
                     background: style.bgSoft,
                     borderColor: style.border,
                   }}
-                  className={`rounded-xl p-3 border-2 text-left transition-all hover:shadow-lg ${p.estoque <= 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02] active:scale-95"}`}
+                  className={`rounded-xl p-3 border-2 text-left transition-all hover:shadow-lg ${(p.estoque?.saldo ?? 0) <= 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02] active:scale-95"}`}
                 >
                   <div className="flex items-start justify-between mb-1.5">
                     <span 
@@ -478,7 +478,7 @@ export default function NewSale() {
                     >
                       {catName}
                     </span>
-                    <span className="text-[10px] text-muted-foreground font-bold">{p.estoque} un.</span>
+                    <span className="text-[10px] text-muted-foreground font-bold">{p.estoque?.[0]?.saldo ?? 0} un.</span>
                   </div>
                   <p className="font-bold text-sm leading-tight truncate mb-1 text-[#1e3a8a]" title={p.nome}>{p.nome}</p>
                   <p style={{ color: style.text }} className="font-black text-base">{formatCurrency(p.preco)}</p>
