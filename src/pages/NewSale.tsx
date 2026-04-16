@@ -17,8 +17,9 @@ interface Product {
   categoria_id: string;
   categorias?: { nome: string };
   preco: number;
-  estoque?: { saldo: number };
+  estoque?: any;
   ativo: boolean;
+  imagem_url?: string;
 }
 interface Category { id: string; nome: string; }
 interface PaymentMethod { id: string; nome: string; }
@@ -320,6 +321,7 @@ export default function NewSale() {
         p_endereco: orderType === "Entrega" ? address : "",
         p_telefone: orderType === "Entrega" ? phone : "",
         p_taxa_entrega: orderType === "Entrega" ? parseFloat(deliveryFee.toString()) : 0,
+        p_status: "Concluída"
       });
 
       if (error) { toast.error(error.message || "Erro ao realizar venda"); return; }
@@ -399,6 +401,83 @@ export default function NewSale() {
     }
   }
 
+  async function handleSaveComanda() {
+    setIsSubmitting(true);
+    try {
+      const { error } = await (supabase as any).rpc("realizar_venda", {
+        p_itens: cart.map((i: any) => ({ produto_id: i.product.id, quantidade: i.quantity, preco_unitario: i.product.preco })),
+        p_pagamento_id: null,
+        p_observacao: notes || "",
+        p_cliente: identification || "",
+        p_cliente_id: null,
+        p_tipo_pedido: "Local",
+        p_endereco: "",
+        p_telefone: "",
+        p_taxa_entrega: 0,
+        p_status: "Em Aberto"
+      });
+
+      if (error) { toast.error(error.message || "Erro ao salvar comanda"); return; }
+
+      const now = new Date();
+      const dataHora = now.toLocaleDateString("pt-BR") + " " + now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      
+      setReceiptData({
+        orderType: "Local",
+        identification: identification || "Comanda Extra",
+        cart: [...cart],
+        subtotal,
+        deliveryFee: 0,
+        totalGeral: subtotal,
+        paymentName: "PENDENTE (EM ABERTO)",
+        notes: notes,
+        trocoValor: "",
+        noTroco: false,
+        isDinheiro: false,
+        clienteNome: "",
+        clienteTelefone: "",
+        clienteEndereco: "",
+        clienteComplemento: "",
+        dataHora,
+      });
+
+      if (usuario) {
+        await registrarAuditoria({
+          usuario_id: usuario.id,
+          usuario_nome: usuario.nome,
+          tipo: "venda",
+          acao: "Comanda aberta",
+          detalhes: {
+            total: subtotal,
+            tipo_pedido: "Local",
+            cliente_nome: identification,
+            quantidade_itens: cart.length
+          }
+        });
+        await registrarAuditoria({
+          usuario_id: usuario.id,
+          usuario_nome: usuario.nome,
+          tipo: "estoque",
+          acao: "Baixa de estoque por comanda",
+          detalhes: {
+            venda_tipo: "Local",
+            itens: cart.map(i => `${i.quantity}x ${i.product.nome}`).join(", ")
+          }
+        });
+      }
+
+      toast.success("Comanda salva e pendente de pagamento!");
+      setModalOpen(false);
+      resetAll();
+      fetchInitialData();
+      setReceiptOpen(true);
+    } catch {
+      toast.error("Erro inesperado ao salvar comanda");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function handlePrint() {
     const style = document.createElement("style");
     style.innerHTML = printStyle;
@@ -464,24 +543,43 @@ export default function NewSale() {
                 <button 
                   key={p.id} 
                   onClick={() => addToCart(p)} 
-                  disabled={(p.estoque?.saldo ?? 0) <= 0}
+                  disabled={((p.estoque?.saldo ?? p.estoque?.[0]?.saldo) ?? 0) <= 0}
                   style={{
                     background: style.bgSoft,
                     borderColor: style.border,
                   }}
-                  className={`rounded-xl p-3 border-2 text-left transition-all hover:shadow-lg ${(p.estoque?.saldo ?? 0) <= 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02] active:scale-95"}`}
+                  className={`rounded-xl border-2 text-left transition-all hover:shadow-lg overflow-hidden flex flex-col ${((p.estoque?.saldo ?? p.estoque?.[0]?.saldo) ?? 0) <= 0 ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:scale-[1.02] active:scale-95"}`}
                 >
-                  <div className="flex items-start justify-between mb-1.5">
-                    <span 
-                      style={{ background: style.bg, color: "#fff" }}
-                      className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-md"
-                    >
-                      {catName}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground font-bold">{p.estoque?.[0]?.saldo ?? 0} un.</span>
+                  {p.imagem_url ? (
+                    <div className="w-full h-32 bg-muted relative shrink-0">
+                      <img src={p.imagem_url} alt={p.nome} className="w-full h-full object-cover" />
+                      <div className="absolute top-2 left-2">
+                        <span style={{ background: style.bg, color: "#fff" }} className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-md shadow-sm">
+                          {catName}
+                        </span>
+                      </div>
+                      <div className="absolute top-2 right-2 bg-background/90 px-1.5 py-0.5 rounded-md shadow-sm">
+                        <span className="text-[10px] text-foreground font-bold">{((p.estoque?.saldo ?? p.estoque?.[0]?.saldo) ?? 0)} un.</span>
+                      </div>
+                    </div>
+                  ) : null}
+                  <div className="p-3 flex-1 flex flex-col w-full">
+                    {!p.imagem_url && (
+                      <div className="flex items-start justify-between mb-1.5">
+                        <span 
+                          style={{ background: style.bg, color: "#fff" }}
+                          className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-md"
+                        >
+                          {catName}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground font-bold">{((p.estoque?.saldo ?? p.estoque?.[0]?.saldo) ?? 0)} un.</span>
+                      </div>
+                    )}
+                    <p className={`font-bold text-sm leading-tight truncate mb-1 text-[#1e3a8a] ${p.imagem_url ? "mt-1" : ""}`} title={p.nome}>{p.nome}</p>
+                    <div className="mt-auto pt-1">
+                      <p style={{ color: style.text }} className="font-black text-base">{formatCurrency(p.preco)}</p>
+                    </div>
                   </div>
-                  <p className="font-bold text-sm leading-tight truncate mb-1 text-[#1e3a8a]" title={p.nome}>{p.nome}</p>
-                  <p style={{ color: style.text }} className="font-black text-base">{formatCurrency(p.preco)}</p>
                 </button>
               );
             })}
@@ -531,7 +629,7 @@ export default function NewSale() {
 
       {/* ===== CHECKOUT MODAL ===== */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader><DialogTitle>Finalizar Venda</DialogTitle></DialogHeader>
 
           {/* Progress */}
@@ -700,9 +798,14 @@ export default function NewSale() {
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setStep(1)}>← Voltar</Button>
-                <Button onClick={() => setStep(3)} className="bg-primary text-primary-foreground hover:bg-primary/90">Próximo →</Button>
+              <div className="flex flex-wrap justify-end gap-2 pt-4 mt-2 border-t border-border/50">
+                <Button variant="outline" onClick={() => setStep(1)} disabled={isSubmitting}>← Voltar</Button>
+                {orderType === "Local" && (
+                  <Button variant="secondary" onClick={handleSaveComanda} disabled={isSubmitting} className="hover:bg-muted">
+                    {isSubmitting ? "Salvando..." : "Salvar Comanda"}
+                  </Button>
+                )}
+                <Button onClick={() => setStep(3)} disabled={isSubmitting} className="bg-primary text-primary-foreground hover:bg-primary/90">Ir para Pagamento →</Button>
               </div>
             </div>
           )}

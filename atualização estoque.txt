@@ -30,12 +30,12 @@ A lógica funciona assim:
 Comparação
 ===================
 
-				Atual			Amigo
-Simplicidade			✅ Simples		❌ Mais complexo
-Rastreabilidade			❌ Sem histórico		✅ Histórico completo
-Estorno de cancelamento		❌ Manual		✅ Automático
-Relatórios de giro		❌ Difícil		✅ Fácil
-Ideal para...			PDV simples		Estoque sério
+				| Atual			| Amigo
+Simplicidade			| ✅ Simples		| ❌ Mais complexo
+Rastreabilidade			| ❌ Sem histórico	| ✅ Histórico completo
+Estorno de cancelamento		| ❌ Manual		| ✅ Automático
+Relatórios de giro		| ❌ Difícil		| ✅ Fácil
+Ideal para...			| PDV simples		| Estoque sério
 
 
 O modelo do seu amigo é o correto para um sistema profissional. 
@@ -80,3 +80,23 @@ Posso prosseguir com a implementação?
 
 
 =====================================================
+
+Sim, finalizamos toda a parte principal!
+
+A estrutura agora está assim:
+
+Novas tabelas (estoque, entradas_nota, entradas_nota_item) criadas e funcionando.
+Frontend 100% atualizado:
+
+	*- As telas agora leem o estoque da nova tabela independente (estoque.saldo).
+	*- Uma nova página "Entradas" foi criada (no menu Gestão > Entradas) para você lançar compras e notas. 
+	Isso soma produtos no estoque automaticamente.
+	*- Se você cancelar uma Venda, o sistema agora faz o estorno automático devolvendo o produto para a tabela 
+	estoque.
+	*- Os alertas de estoque mínimo no Dashboard também já usam a tabela nova.
+
+O que ficou pendente apenas para o futuro: Deixamos o campo velho produtos.estoque lá atoa por enquanto, 
+apenas como segurança. Depois que você usar a lanchonete amanhã e ver que o novo modelo de estoque não deu 
+nenhum bug, aí a gente apaga essa coluna velha de vez.
+
+Pode recarregar a sua página da lanchonete e testar o menu de "Entradas" e depois a tela de Vendas!

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency } from "@/lib/format";
-import { Plus, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Camera, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -27,9 +27,10 @@ interface Product {
   estoque_minimo: number;
   ativo: boolean;
   estoque?: { saldo: number };
+  imagem_url?: string;
 }
 
-const emptyProduct = { nome: "", categoria_id: "", preco: 0, custo: 0, estoque_minimo: 5, ativo: true };
+const emptyProduct = { nome: "", categoria_id: "", preco: 0, custo: 0, estoque_minimo: 5, ativo: true, imagem_url: "" };
 
 export default function Products() {
   const { usuario } = useAuth();
@@ -39,6 +40,8 @@ export default function Products() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState(emptyProduct);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -66,6 +69,8 @@ export default function Products() {
   function openNew() {
     setEditing(null);
     setForm({ ...emptyProduct, categoria_id: categories[0]?.id || "" });
+    setImageFile(null);
+    setImagePreview(null);
     setModalOpen(true);
   }
 
@@ -77,8 +82,11 @@ export default function Products() {
       preco: p.preco, 
       custo: p.custo, 
       estoque_minimo: p.estoque_minimo, 
-      ativo: p.ativo 
+      ativo: p.ativo,
+      imagem_url: p.imagem_url || "" 
     });
+    setImageFile(null);
+    setImagePreview(p.imagem_url || null);
     setModalOpen(true);
   }
 
@@ -92,21 +100,42 @@ export default function Products() {
       return;
     }
 
+    let finalImageUrl = form.imagem_url;
+
+    if (imageFile) {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from("produtos_imagens")
+        .upload(fileName, imageFile);
+      
+      if (uploadError) {
+        toast.error("Erro ao enviar a imagem. Verifique as configurações de Storage.");
+        console.error(uploadError);
+        return;
+      }
+      
+      const { data } = supabase.storage.from("produtos_imagens").getPublicUrl(fileName);
+      finalImageUrl = data.publicUrl;
+    }
+
+    const payload = { ...form, imagem_url: finalImageUrl };
+
     if (editing) {
-      const { error } = await supabase.from("produtos").update(form).eq("id", editing.id);
+      const { error } = await supabase.from("produtos").update(payload).eq("id", editing.id);
       if (error) {
         toast.error("Erro ao atualizar produto");
         return;
       }
 
       if (usuario) {
-        // Find changes
         const alteracoes: Record<string, any> = {};
         if (editing.nome !== form.nome) alteracoes.nome = { de: editing.nome, para: form.nome };
         if (editing.categoria_id !== form.categoria_id) alteracoes.categoria = { para: categories.find(c => c.id === form.categoria_id)?.nome };
         if (editing.preco !== form.preco) alteracoes.preco = { de: editing.preco, para: form.preco };
         if (editing.custo !== form.custo) alteracoes.custo = { de: editing.custo, para: form.custo };
         if (editing.ativo !== form.ativo) alteracoes.ativo = { de: editing.ativo, para: form.ativo };
+        if (editing.imagem_url !== finalImageUrl) alteracoes.imagem = "Imagem alterada";
 
         await registrarAuditoria({
           usuario_id: usuario.id,
@@ -122,7 +151,7 @@ export default function Products() {
 
       toast.success("Produto atualizado!");
     } else {
-      const { error } = await supabase.from("produtos").insert(form);
+      const { error } = await supabase.from("produtos").insert(payload);
       if (error) {
         toast.error("Erro ao criar produto");
         return;
@@ -138,6 +167,7 @@ export default function Products() {
             nome: form.nome,
             categoria: categories.find(c => c.id === form.categoria_id)?.nome,
             preco: form.preco,
+            com_imagem: !!finalImageUrl
           }
         });
       }
@@ -213,7 +243,18 @@ export default function Products() {
             <tbody>
               {filtered.map((p) => (
                 <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                  <td className="p-3 font-medium">{p.nome}</td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-3">
+                      {p.imagem_url ? (
+                        <img src={p.imagem_url} alt={p.nome} className="w-10 h-10 rounded-md object-cover flex-shrink-0 bg-muted" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center flex-shrink-0 text-muted-foreground/30">
+                          <Camera className="w-4 h-4" />
+                        </div>
+                      )}
+                      <span className="font-medium">{p.nome}</span>
+                    </div>
+                  </td>
                   <td className="p-3 text-muted-foreground">{p.categorias?.nome || '-'}</td>
                   <td className="p-3">{formatCurrency(p.preco)}</td>
                   <td className="p-3">
@@ -254,6 +295,42 @@ export default function Products() {
             <DialogTitle>{editing ? "Editar Produto" : "Novo Produto"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Foto Picker */}
+            <div className="flex justify-center">
+              <div className="relative group cursor-pointer w-32 h-32 rounded-xl border-2 border-dashed border-primary/40 bg-muted/30 hover:bg-muted/50 transition-colors flex items-center justify-center overflow-hidden">
+                {imagePreview ? (
+                  <>
+                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                    <button 
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setImagePreview(null); setImageFile(null); setForm(f => ({...f, imagem_url: ""})); }}
+                      className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                ) : (
+                  <div className="text-center text-muted-foreground flex flex-col items-center">
+                    <Camera className="w-8 h-8 mb-1 opacity-50" />
+                    <span className="text-[10px] font-medium leading-tight">Câmera /<br/>Galeria</span>
+                  </div>
+                )}
+                {!imagePreview && (
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    capture="environment"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) {
+                        setImageFile(e.target.files[0]);
+                        setImagePreview(URL.createObjectURL(e.target.files[0]));
+                      }
+                    }} 
+                  />
+                )}
+              </div>
+            </div>
+
             <div>
               <Label>Nome</Label>
               <Input placeholder="Ex: X-Burger" value={form.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} />

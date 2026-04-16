@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatTime } from "@/lib/format";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { ShoppingCart, DollarSign, Package, AlertTriangle, Receipt, TrendingUp, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShoppingCart, DollarSign, Package, AlertTriangle, Receipt, TrendingUp, ChevronLeft, ChevronRight, Bike } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Product {
   id: string;
@@ -41,6 +42,7 @@ interface ItemVenda {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [todaySales, setTodaySales] = useState<SaleWithItems[]>([]);
   const [allSales, setAllSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -170,12 +172,47 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-20 z-30 -mx-4 px-4 py-4 -mt-4 bg-background/95 backdrop-blur shadow-sm md:-mx-6 md:px-6 lg:-mx-8 lg:px-8">
-        <h1 className="text-2xl font-bold text-foreground">Painel</h1>
-        <p className="text-muted-foreground text-sm">Visão geral da lanchonete</p>
+      <div className="sticky top-20 z-30 -mx-4 px-4 py-4 -mt-4 bg-background/95 backdrop-blur shadow-sm md:-mx-6 md:px-6 lg:-mx-8 lg:px-8 border-b border-border/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Painel</h1>
+          <p className="text-muted-foreground text-sm">Visão geral da lanchonete</p>
+        </div>
+
+        {/* Atalhos Rápidos */}
+        <div className="flex flex-wrap gap-3">
+          <button 
+            onClick={() => navigate('/nova-venda')} 
+            className="card-metric flex flex-row items-center gap-3 py-2 pl-2 pr-5 hover:shadow-md hover:-translate-y-0.5 transition-all active:scale-95 group cursor-pointer text-left m-0"
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#22c55e] text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm flex-shrink-0">
+              <ShoppingCart className="w-5 h-5" />
+            </div>
+            <span className="font-bold text-[#1e3a8a] text-sm md:text-base tracking-tight">Nova Venda</span>
+          </button>
+
+          <button 
+            onClick={() => navigate('/vendas')} 
+            className="card-metric flex flex-row items-center gap-3 py-2 pl-2 pr-5 hover:shadow-md hover:-translate-y-0.5 transition-all active:scale-95 group cursor-pointer text-left m-0"
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#3b82f6] text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm flex-shrink-0">
+              <Receipt className="w-5 h-5" />
+            </div>
+            <span className="font-bold text-[#1e3a8a] text-sm md:text-base tracking-tight">Vendas</span>
+          </button>
+
+          <button 
+            onClick={() => navigate('/entregas')} 
+            className="card-metric flex flex-row items-center gap-3 py-2 pl-2 pr-5 hover:shadow-md hover:-translate-y-0.5 transition-all active:scale-95 group cursor-pointer text-left m-0"
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#ec4899] text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm flex-shrink-0">
+              <Bike className="w-5 h-5" />
+            </div>
+            <span className="font-bold text-[#1e3a8a] text-sm md:text-base tracking-tight">Entregas</span>
+          </button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
         <div className="card-metric flex items-start justify-between">
           <div>
             <p className="text-sm text-muted-foreground">Vendas Hoje</p>
