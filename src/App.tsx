@@ -101,7 +101,27 @@ const App = () => (
               }
             />
             <Route
+              path="/new-sale"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <NewSale />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/vendas"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Sales />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sales"
               element={
                 <ProtectedRoute>
                   <AppLayout>

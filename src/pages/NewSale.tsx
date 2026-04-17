@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, getCategoriaBadgeClass } from "@/lib/format";
 import { Search, ShoppingCart, Plus, Minus, X, UserPlus, Check, Printer } from "lucide-react";
@@ -152,6 +153,10 @@ function Receipt({ data }: { data: ReceiptData }) {
 }
 
 export default function NewSale() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const linkedVendaId = searchParams.get("vendaId");
+  const linkedCliente = searchParams.get("cliente");
   const { usuario } = useAuth();
   const CATEGORY_STYLES: Record<string, { bg: string; border: string; text: string; bgSoft: string }> = {
     Bebidas: { bg: "#3b82f6", border: "#bfdbfe", text: "#1d4ed8", bgSoft: "#eff6ff" },
@@ -212,6 +217,19 @@ export default function NewSale() {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
+
+  useEffect(() => {
+    if (linkedVendaId && linkedCliente) {
+      setOrderType("Local");
+      setIdentification(linkedCliente);
+      // Pequeno delay para o toast não sumir com o carregamento inicial
+      setTimeout(() => {
+        toast.info(`Adicionando itens à comanda de: ${linkedCliente}`, {
+          duration: 5000,
+        });
+      }, 500);
+    }
+  }, [linkedVendaId, linkedCliente]);
 
   async function fetchInitialData() {
     const [prodRes, catRes, payRes] = await Promise.all([
@@ -478,6 +496,46 @@ export default function NewSale() {
     }
   }
 
+  async function handleAddItemsToExisting() {
+    if (!linkedVendaId) return;
+    setIsSubmitting(true);
+    try {
+      const { error } = await (supabase as any).rpc("adicionar_itens_venda", {
+        p_venda_id: linkedVendaId,
+        p_itens: cart.map((i: any) => ({ 
+          produto_id: i.product.id, 
+          quantidade: i.quantity, 
+          preco_unitario: i.product.preco 
+        }))
+      });
+
+      if (error) { toast.error(error.message || "Erro ao adicionar itens"); return; }
+
+      if (usuario) {
+        await registrarAuditoria({
+          usuario_id: usuario.id,
+          usuario_nome: usuario.nome,
+          tipo: "venda",
+          acao: "Itens adicionados a comanda aberta",
+          detalhes: {
+            venda_id: linkedVendaId,
+            cliente: linkedCliente,
+            itens: cart.map(i => `${i.quantity}x ${i.product.nome}`).join(", ")
+          }
+        });
+      }
+
+      toast.success("Itens adicionados com sucesso!");
+      setModalOpen(false);
+      resetAll();
+      navigate("/vendas");
+    } catch {
+      toast.error("Erro inesperado ao adicionar itens");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function handlePrint() {
     const style = document.createElement("style");
     style.innerHTML = printStyle;
@@ -505,6 +563,20 @@ export default function NewSale() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input placeholder="Buscar produtos..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 bg-card" />
           </div>
+          
+          {linkedVendaId && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 flex items-center justify-between animate-in slide-in-from-top-2">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                <p className="text-sm text-indigo-900">
+                  Modo de Edição: <strong>{linkedCliente}</strong>
+                </p>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate("/nova-venda")} className="text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 h-7 text-xs">
+                Sair do modo edição
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2 mb-4 flex-wrap pb-2 border-b border-border/50 flex-none">
@@ -620,8 +692,8 @@ export default function NewSale() {
               <span className="text-muted-foreground font-medium">Total do Pedido</span>
               <span className="text-2xl font-extrabold text-primary">{formatCurrency(subtotal)}</span>
             </div>
-            <Button onClick={() => { setStep(1); setModalOpen(true); }} disabled={cart.length === 0} className="w-full h-12 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20">
-              Revisar Pedido
+            <Button onClick={() => { setStep(linkedVendaId ? 2 : 1); setModalOpen(true); }} disabled={cart.length === 0} className="w-full h-12 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20">
+              {linkedVendaId ? "Confirmar Adição" : "Revisar Pedido"}
             </Button>
           </div>
         </div>
@@ -760,7 +832,13 @@ export default function NewSale() {
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-                <Button onClick={() => setStep(2)} className="bg-primary text-primary-foreground hover:bg-primary/90">Próximo →</Button>
+                {linkedVendaId ? (
+                   <Button onClick={handleAddItemsToExisting} disabled={isSubmitting} className="bg-indigo-600 text-white hover:bg-indigo-700">
+                     {isSubmitting ? "Salvando..." : "Confirmar Adição"}
+                   </Button>
+                ) : (
+                  <Button onClick={() => setStep(2)} className="bg-primary text-primary-foreground hover:bg-primary/90">Próximo →</Button>
+                )}
               </div>
             </div>
           )}
@@ -800,12 +878,20 @@ export default function NewSale() {
 
               <div className="flex flex-wrap justify-end gap-2 pt-4 mt-2 border-t border-border/50">
                 <Button variant="outline" onClick={() => setStep(1)} disabled={isSubmitting}>← Voltar</Button>
-                {orderType === "Local" && (
-                  <Button variant="secondary" onClick={handleSaveComanda} disabled={isSubmitting} className="hover:bg-muted">
-                    {isSubmitting ? "Salvando..." : "Salvar Comanda"}
+                {linkedVendaId ? (
+                  <Button onClick={handleAddItemsToExisting} disabled={isSubmitting} className="bg-indigo-600 text-white hover:bg-indigo-700">
+                    {isSubmitting ? "Salvando..." : "Confirmar Adição"}
                   </Button>
+                ) : (
+                  <>
+                    {orderType === "Local" && (
+                      <Button variant="secondary" onClick={handleSaveComanda} disabled={isSubmitting} className="hover:bg-muted">
+                        {isSubmitting ? "Salvando..." : "Salvar Comanda"}
+                      </Button>
+                    )}
+                    <Button onClick={() => setStep(3)} disabled={isSubmitting} className="bg-primary text-primary-foreground hover:bg-primary/90">Ir para Pagamento →</Button>
+                  </>
                 )}
-                <Button onClick={() => setStep(3)} disabled={isSubmitting} className="bg-primary text-primary-foreground hover:bg-primary/90">Ir para Pagamento →</Button>
               </div>
             </div>
           )}

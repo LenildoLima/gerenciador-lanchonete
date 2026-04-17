@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { Search, Eye, Ban, Wallet, DollarSign } from "lucide-react";
@@ -50,6 +51,7 @@ interface VendaComContagem extends Venda {
 }
 
 export default function Vendas() {
+  const navigate = useNavigate();
   const { usuario } = useAuth();
   const [vendas, setVendas] = useState<VendaComContagem[]>([]);
   const [search, setSearch] = useState("");
@@ -298,9 +300,14 @@ export default function Vendas() {
                     Ver Detalhes
                   </button>
                   {v.situacao === "Em Aberto" && (
-                    <button onClick={() => { setVendaPagamento(v); setPaymentAmount((Number(v.total) + taxa - v.total_pago).toFixed(2)); setPaymentMethodId(""); setPaymentModalOpen(true); }} className="px-3 py-1.5 text-xs font-bold bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors shadow-sm">
-                      Receber Caixa
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={() => navigate(`/nova-venda?vendaId=${v.id}&cliente=${v.clientes?.nome || v.nome_cliente || ""}`)} className="px-3 py-1.5 text-xs font-bold bg-indigo-500 hover:bg-indigo-600 text-white rounded-md transition-colors shadow-sm">
+                        Adicionar Itens
+                      </button>
+                      <button onClick={() => { setVendaPagamento(v); setPaymentAmount((Number(v.total) + taxa - v.total_pago).toFixed(2)); setPaymentMethodId(""); setPaymentModalOpen(true); }} className="px-3 py-1.5 text-xs font-bold bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors shadow-sm">
+                        Receber Caixa
+                      </button>
+                    </div>
                   )}
                   {(v.situacao === "Concluída" || v.situacao === "Em Aberto") && (
                     <button onClick={() => cancelVenda(v.id)} className="px-3 py-1.5 text-xs font-semibold border border-destructive/30 hover:bg-destructive hover:text-white text-destructive rounded-md transition-all">
