@@ -15,7 +15,8 @@ import {
   Settings, 
   UserCog,
   User,
-  PackagePlus
+  PackagePlus,
+  ChefHat
 } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
@@ -28,6 +29,7 @@ const dropdownGroups = [
     icon: ShoppingBag,
     items: [
       { title: "Nova Venda", url: "/nova-venda", icon: ShoppingCart, color: "#16a34a", perfis: ["admin", "atendente"] },
+      { title: "Cozinha (KDS)", url: "/cozinha", icon: ChefHat, color: "#f59e0b", perfis: ["admin", "atendente"] },
       { title: "Vendas", url: "/vendas", icon: Receipt, color: "#2563eb", perfis: ["admin", "atendente"] },
       { title: "Entregas", url: "/entregas", icon: Bike, color: "#db2777", perfis: ["admin", "atendente"] },
     ]

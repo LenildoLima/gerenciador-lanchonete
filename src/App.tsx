@@ -21,6 +21,7 @@ import Caixa from "./pages/Caixa";
 import Entregadores from "./pages/Entregadores";
 import Entregas from "./pages/Entregas";
 import Entradas from "./pages/Entradas";
+import KDS from "./pages/KDS";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -106,6 +107,16 @@ const App = () => (
                 <ProtectedRoute>
                   <AppLayout>
                     <NewSale />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/cozinha"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <KDS />
                   </AppLayout>
                 </ProtectedRoute>
               }
