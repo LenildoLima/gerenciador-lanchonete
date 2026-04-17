@@ -19,7 +19,8 @@ import {
   User,
   MoreVertical,
   Scale,
-  Activity
+  Activity,
+  ShoppingBag
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -43,10 +44,10 @@ interface Caixa {
 
 interface Movimentacao {
   id: string;
-  tipo: 'sangria' | 'suprimento';
+  tipo: 'sangria' | 'suprimento' | 'venda';
   valor: number;
   descricao: string | null;
-  usuario_nome: string;
+  usuario_nome?: string;
   criado_em: string;
 }
 
@@ -101,19 +102,34 @@ export default function Caixa() {
           .order("criado_em", { ascending: false });
         setMovimentacoes((movs as any[]) || []);
 
-        // Buscar TODAS as vendas concluídas desde a abertura (incluindo taxas de entrega)
-        const { data: vendas } = await (supabase as any)
+        // Buscar TODAS as vendas concluídas desde a abertura (detalhado para a lista)
+        const { data: vendasDetalhadas } = await (supabase as any)
           .from("vendas")
-          .select("total, entregas(taxa)")
+          .select("id, criado_em, total, nome_cliente, clientes(nome), entregas(taxa)")
           .eq("situacao", "Concluída")
           .gte("criado_em", (aberto as any).aberto_em);
 
-        const totalVendas = (vendas as any[])?.reduce((acc, v) => {
+        const vData = (vendasDetalhadas as any[]) || [];
+        const totalVendas = vData.reduce((acc, v) => {
           const taxa = v.entregas?.[0]?.taxa || 0;
           return acc + v.total + taxa;
-        }, 0) || 0;
+        }, 0);
 
-        // Sincronizar total de vendas no estado
+        // Mapear vendas para o formato de movimentação
+        const vendasMapeadas: Movimentacao[] = vData.map(v => ({
+          id: v.id,
+          tipo: 'venda',
+          valor: v.total + (v.entregas?.[0]?.taxa || 0),
+          descricao: `Venda para ${v.clientes?.nome || v.nome_cliente || 'Cliente'}`,
+          criado_em: v.criado_em
+        }));
+
+        // Mesclar e ordenar por data decrescente
+        const todasMovs = [...(movs as any[] || []), ...vendasMapeadas].sort((a, b) => 
+          new Date(b.criado_em).getTime() - new Date(a.criado_em).getTime()
+        );
+
+        setMovimentacoes(todasMovs);
         setCaixaAberto(prev => prev ? { ...prev, total_vendas: totalVendas } : null);
       } else {
         setCaixaAberto(null);
@@ -470,9 +486,9 @@ export default function Caixa() {
           <span className="text-xs font-bold text-muted-foreground">{movimentacoes.length} registros</span>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[45vh] scrollbar-thin scrollbar-thumb-muted-foreground/20">
           <table className="w-full text-sm">
-            <thead className="hidden md:table-header-group">
+            <thead className="hidden md:table-header-group sticky top-0 z-20 bg-background/95 backdrop-blur-sm border-b border-border/40">
               <tr className="border-b border-border/40 text-left">
                 <th className="p-4 font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Tipo</th>
                 <th className="p-4 font-bold text-muted-foreground uppercase text-[10px] tracking-widest">Descrição</th>
@@ -485,23 +501,28 @@ export default function Caixa() {
               {movimentacoes.map((m) => (
                 <tr key={m.id} className="hover:bg-muted/10 transition-colors">
                   <td className="p-4">
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${m.tipo === 'suprimento' ? "bg-green-100 text-green-700 border border-green-200" : "bg-red-100 text-red-700 border border-red-200"
-                      }`}>
-                      {m.tipo === 'suprimento' ? <Plus size={10} /> : <Minus size={10} />}
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                      m.tipo === 'suprimento' ? "bg-green-100 text-green-700 border border-green-200" : 
+                      m.tipo === 'sangria' ? "bg-red-100 text-red-700 border border-red-200" :
+                      "bg-blue-100 text-blue-700 border border-blue-200"
+                    }`}>
+                      {m.tipo === 'suprimento' ? <Plus size={10} /> : m.tipo === 'sangria' ? <Minus size={10} /> : <ShoppingBag size={10} />}
                       {m.tipo}
                     </span>
                   </td>
                   <td className="p-4 text-muted-foreground font-medium">{m.descricao || "—"}</td>
-                  <td className="p-4 font-bold text-foreground/80">{m.usuario_nome}</td>
+                  <td className="p-4 font-bold text-foreground/80">{m.usuario_nome || "Sistema"}</td>
                   <td className="p-4 text-muted-foreground">{new Date(m.criado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                  <td className={`p-4 text-right font-black text-md ${m.tipo === 'suprimento' ? "text-green-600" : "text-red-600"}`}>
-                    {m.tipo === 'suprimento' ? "+" : "-"}{formatCurrency(m.valor)}
+                  <td className={`p-4 text-right font-black text-md ${
+                    m.tipo === 'sangria' ? "text-red-600" : "text-green-600"
+                  }`}>
+                    {m.tipo === 'sangria' ? "-" : "+"}{formatCurrency(m.valor)}
                   </td>
                 </tr>
               ))}
               {movimentacoes.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-12 text-center text-muted-foreground italic font-medium">Nenhuma movimentação manual registrada neste turno.</td>
+                  <td colSpan={5} className="p-12 text-center text-muted-foreground italic font-medium">Nenhuma movimentação registrada neste turno.</td>
                 </tr>
               )}
             </tbody>
