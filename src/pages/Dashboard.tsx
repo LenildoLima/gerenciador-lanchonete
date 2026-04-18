@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { formatCurrency, formatTime } from "@/lib/format";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { ShoppingCart, DollarSign, Package, AlertTriangle, Receipt, TrendingUp, ChevronLeft, ChevronRight, Bike } from "lucide-react";
+import { ShoppingCart, DollarSign, Package, AlertTriangle, Receipt, TrendingUp, ChevronLeft, ChevronRight, Bike, CheckCircle2, ChefHat } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Product {
@@ -32,13 +32,11 @@ interface SaleWithItems extends Sale {
   itemCount: number;
 }
 
-interface ItemVenda {
-  id: string;
+interface ItemRanking {
   produto_id: string;
-  nome_produto: string;
-  quantidade: number;
-  preco_unitario: number;
-  venda_id: string;
+  nome: string;
+  qtd: number;
+  total: number;
 }
 
 export default function Dashboard() {
@@ -47,7 +45,8 @@ export default function Dashboard() {
   const [allSales, setAllSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [chartData, setChartData] = useState<{ dia: string; valor: number }[]>([]);
-  const [mostSoldProduct, setMostSoldProduct] = useState<{ nome: string; qtd: number } | null>(null);
+  const [topProducts, setTopProducts] = useState<ItemRanking[]>([]);
+  const [ticketMedio, setTicketMedio] = useState(0);
   const [mesSelecionado, setMesSelecionado] = useState<Date>(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -84,6 +83,7 @@ export default function Dashboard() {
     const ultimoDiaMes = new Date(mesSelecionado.getFullYear(), mesSelecionado.getMonth() + 1, 0);
     ultimoDiaMes.setHours(23, 59, 59, 999);
 
+    // 1. Buscar Vendas do Período e Produtos
     const [productsRes, allNeededSalesRes, todaySalesRes] = await Promise.all([
       supabase.from("produtos").select("*, categorias(nome), estoque(saldo)"),
       supabase
@@ -100,37 +100,47 @@ export default function Dashboard() {
     ]);
 
     const salesList = (allNeededSalesRes.data as any[]) || [];
-    setProducts((productsRes.data as any[]) || []);
-    
     setAllSales(salesList);
+    setProducts((productsRes.data as any[]) || []);
 
-    const todayData = (todaySalesRes.data as any[]) || [];
-    const salesWithItems: SaleWithItems[] = [];
-    const itemsCount: Record<string, { nome: string; qtd: number }> = {};
-
-    for (const sale of todayData) {
-      const { data: items } = await supabase
-        .from("itens_venda")
-        .select("*")
-        .eq("venda_id", sale.id);
-      
-      const itemList = (items as ItemVenda[]) || [];
-      salesWithItems.push({ ...sale, itemCount: itemList.length });
-
-      for (const item of itemList) {
-        if (!itemsCount[item.produto_id]) {
-          itemsCount[item.produto_id] = { nome: item.nome_produto, qtd: 0 };
-        }
-        itemsCount[item.produto_id].qtd += item.quantidade;
-      }
+    // 2. Calcular Ticket Médio
+    if (salesList.length > 0) {
+      const totalMes = salesList.reduce((s, v) => s + Number(v.total), 0);
+      setTicketMedio(totalMes / salesList.length);
+    } else {
+      setTicketMedio(0);
     }
 
-    setTodaySales(salesWithItems);
+    // 3. Buscar Itens para o Ranking e Dashboard de Hoje
+    const { data: monthItems } = await supabase
+      .from("itens_venda")
+      .select("produto_id, nome_produto, quantidade, preco_unitario, venda_id")
+      .in("venda_id", salesList.map(s => s.id));
 
-    const sortedItems = Object.values(itemsCount).sort((a, b) => b.qtd - a.qtd);
-    setMostSoldProduct(sortedItems[0] || null);
+    const itemRanking: Record<string, ItemRanking> = {};
+    (monthItems || []).forEach((item: any) => {
+      if (!itemRanking[item.produto_id]) {
+        itemRanking[item.produto_id] = { 
+          produto_id: item.produto_id, 
+          nome: item.nome_produto, 
+          qtd: 0, 
+          total: 0 
+        };
+      }
+      itemRanking[item.produto_id].qtd += item.quantidade;
+      itemRanking[item.produto_id].total += (item.quantidade * item.preco_unitario);
+    });
 
-    // Gerar dados para o gráfico (todos os dias do mês)
+    const sortedRanking = Object.values(itemRanking)
+      .sort((a, b) => b.qtd - a.qtd)
+      .slice(0, 5);
+    setTopProducts(sortedRanking);
+
+    // 4. Hoje (Today)
+    const todayData = (todaySalesRes.data as any[]) || [];
+    setTodaySales(todayData.map(s => ({ ...s, itemCount: 0 }))); // Placeholder for itemCount
+
+    // 5. Gerar dados para o gráfico
     const diasNoMes = ultimoDiaMes.getDate();
     const dadosGrafico = [];
 
@@ -209,6 +219,16 @@ export default function Dashboard() {
             </div>
             <span className="font-bold text-[#1e3a8a] text-sm md:text-base tracking-tight">Entregas</span>
           </button>
+
+          <button 
+            onClick={() => navigate('/cozinha')} 
+            className="card-metric flex flex-row items-center gap-3 py-2 pl-2 pr-5 hover:shadow-md hover:-translate-y-0.5 transition-all active:scale-95 group cursor-pointer text-left m-0 border-orange-200 bg-orange-50/30"
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#f59e0b] text-white flex items-center justify-center group-hover:scale-105 transition-transform shadow-sm flex-shrink-0">
+              <ChefHat className="w-5 h-5" />
+            </div>
+            <span className="font-bold text-[#1e3a8a] text-sm md:text-base tracking-tight">Cozinha</span>
+          </button>
         </div>
       </div>
 
@@ -259,11 +279,9 @@ export default function Dashboard() {
 
         <div className="card-metric flex items-start justify-between">
           <div>
-            <p className="text-sm text-muted-foreground">Produto +Vendido</p>
-            <p className="text-lg font-bold mt-1 truncate max-w-[150px]" title={mostSoldProduct?.nome || "Nenhum"}>
-              {mostSoldProduct ? mostSoldProduct.nome : "Nenhum"}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">{mostSoldProduct ? `${mostSoldProduct.qtd} unidades vendidas` : "Sem vendas hoje"}</p>
+            <p className="text-sm text-muted-foreground">Ticket Médio</p>
+            <p className="text-2xl font-bold mt-1 text-primary">{formatCurrency(ticketMedio)}</p>
+            <p className="text-xs text-muted-foreground mt-1">Média por venda no mês</p>
           </div>
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
             <TrendingUp className="w-5 h-5 text-primary" />
@@ -272,12 +290,14 @@ export default function Dashboard() {
 
         <div className="card-metric flex items-start justify-between">
           <div>
-            <p className="text-sm text-muted-foreground">Arrecadação Diária</p>
-            <p className="text-2xl font-bold mt-1">{formatCurrency(todayTotal)}</p>
-            <p className="text-xs text-muted-foreground mt-1 font-medium">Total bruto hoje</p>
+            <p className="text-sm text-muted-foreground">Produto +Vendido</p>
+            <p className="text-lg font-bold mt-1 truncate max-w-[150px]" title={topProducts[0]?.nome || "Nenhum"}>
+              {topProducts[0] ? topProducts[0].nome : "Nenhum"}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">{topProducts[0] ? `${topProducts[0].qtd} unidades vendidas` : "Sem vendas no mês"}</p>
           </div>
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <DollarSign className="w-5 h-5 text-primary" />
+            <Package className="w-5 h-5 text-primary" />
           </div>
         </div>
       </div>
@@ -360,48 +380,68 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="card-metric">
-          <div className="flex items-center gap-2 mb-4">
-            <AlertTriangle className="w-5 h-5 text-primary" />
-            <h2 className="font-semibold text-foreground">Estoque Baixo</h2>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary" />
+              <h2 className="font-bold text-foreground">Top 5 Produtos (Mês)</h2>
+            </div>
+            <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">RANKING</span>
           </div>
-          {lowStock.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum produto com estoque baixo</p>
+          {topProducts.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-10 text-center italic">Nenhuma venda registrada no período</p>
           ) : (
-            <div className="space-y-3 max-h-[300px] overflow-auto pr-2 scrollbar-thin">
-              {lowStock.map((p) => (
-                <div key={p.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium">{p.nome}</p>
-                    <p className="text-xs text-muted-foreground">{p.categorias?.nome || 'Geral'}</p>
+            <div className="space-y-5">
+              {topProducts.map((p, index) => {
+                const maxQtd = topProducts[0].qtd;
+                const percentage = (p.qtd / maxQtd) * 100;
+                return (
+                  <div key={p.produto_id} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 flex items-center justify-center bg-muted rounded text-[10px] font-black text-muted-foreground">{index + 1}º</span>
+                        <span className="font-bold text-[#1e3a8a]">{p.nome}</span>
+                      </div>
+                      <span className="font-black text-primary">{p.qtd} <span className="text-[10px] text-muted-foreground font-normal">un.</span></span>
+                    </div>
+                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-primary to-orange-400 rounded-full transition-all duration-1000" 
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-destructive">{p.estoque?.saldo ?? 0}</p>
-                    <p className="text-xs text-muted-foreground">Mínimo: {p.estoque_minimo}</p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
 
         <div className="card-metric">
-          <div className="flex items-center gap-2 mb-4">
-            <Receipt className="w-5 h-5 text-primary" />
-            <h2 className="font-semibold text-foreground">Vendas de Hoje</h2>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-primary" />
+              <h2 className="font-bold text-foreground">Atenção ao Estoque</h2>
+            </div>
+            <span className="text-[10px] uppercase font-bold text-destructive tracking-widest">ALERTA</span>
           </div>
-          {todaySales.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma venda realizada hoje</p>
+          {lowStock.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+              <div className="w-12 h-12 rounded-full bg-green-50 text-green-500 flex items-center justify-center mb-2">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <p className="text-sm italic">Tudo sob controle no estoque</p>
+            </div>
           ) : (
             <div className="space-y-3 max-h-[300px] overflow-auto pr-2 scrollbar-thin">
-              {todaySales.map((s) => (
-                <div key={s.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <p className="text-sm text-muted-foreground">{s.itemCount} {s.itemCount === 1 ? 'item' : 'itens'}</p>
-                    <p className="text-xs text-muted-foreground">{s.formas_pagamento?.nome || '-'}</p>
+              {lowStock.map((p) => (
+                <div key={p.id} className="flex items-center justify-between p-2 rounded-xl border border-transparent hover:border-border hover:bg-muted/50 transition-all">
+                  <div>
+                    <p className="text-sm font-bold text-foreground/80">{p.nome}</p>
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground">{p.categorias?.nome || 'Geral'}</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <p className="text-sm font-bold text-primary">{formatCurrency(Number(s.total))}</p>
-                    <p className="text-xs text-muted-foreground">{formatTime(s.criado_em)}</p>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-destructive">{p.estoque?.saldo ?? 0}</p>
+                    <p className="text-[10px] text-muted-foreground">Mínimo: {p.estoque_minimo}</p>
                   </div>
                 </div>
               ))}
