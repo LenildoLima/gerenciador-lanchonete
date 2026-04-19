@@ -85,6 +85,8 @@ export default function Auditoria() {
       estoque: "bg-yellow-100 text-yellow-700 border-yellow-200",
       caixa: "bg-emerald-100 text-emerald-700 border-emerald-200",
       entrega: "bg-sky-100 text-sky-700 border-sky-200",
+      produtos: "bg-indigo-100 text-indigo-700 border-indigo-200",
+      sistema: "bg-amber-100 text-amber-700 border-amber-200",
     };
     return (
       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${colors[tipo] || "bg-[#1e3a8a]/10 text-[#1e3a8a] border-[#1e3a8a]/20"}`}>
@@ -149,6 +151,8 @@ export default function Auditoria() {
             <option value="estoque">Estoque</option>
             <option value="caixa">Caixa</option>
             <option value="entrega">Entregas</option>
+            <option value="produtos">Produtos</option>
+            <option value="sistema">Sistema</option>
           </select>
         </div>
       </div>

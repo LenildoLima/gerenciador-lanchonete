@@ -22,6 +22,7 @@ import Entregadores from "./pages/Entregadores";
 import Entregas from "./pages/Entregas";
 import Entradas from "./pages/Entradas";
 import KDS from "./pages/KDS";
+import Backup from "./pages/Backup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -187,6 +188,16 @@ const App = () => (
                 <ProtectedRoute apenasAdmin>
                   <AppLayout>
                     <Auditoria />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/backup"
+              element={
+                <ProtectedRoute apenasAdmin>
+                  <AppLayout>
+                    <Backup />
                   </AppLayout>
                 </ProtectedRoute>
               }

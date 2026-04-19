@@ -16,7 +16,8 @@ import {
   UserCog,
   User,
   PackagePlus,
-  ChefHat
+  ChefHat,
+  Database
 } from "lucide-react";
 import { useLocation, Link } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
@@ -227,6 +228,17 @@ export function Navbar() {
                           </div>
                           <span className="font-bold text-sm tracking-tight">Auditoria</span>
                         </Link>
+                        <Link
+                          to="/backup"
+                          className={`flex items-center gap-3 p-2 rounded-[0.5rem] transition-all group mt-1 ${
+                            location.pathname === "/backup" ? "bg-[#f97316] text-white" : "text-[#1e3a8a] hover:bg-[#fff7ed] hover:text-[#f97316]"
+                          }`}
+                        >
+                          <div className="w-8 h-8 flex items-center justify-center rounded-[0.5rem] bg-[#f59e0b] text-white shadow-sm">
+                            <Database size={16} />
+                          </div>
+                          <span className="font-bold text-sm tracking-tight">Backup</span>
+                        </Link>
                         <div className="h-px bg-gray-100 my-2 mx-1" />
                       </>
                     )}
@@ -374,6 +386,7 @@ export function Navbar() {
                   <div className="space-y-1">
                     <DrawerLink to="/usuarios" label="Usuários" icon={UserCog} color="#dc2626" active={location.pathname === "/usuarios"} onClick={() => setIsOpen(false)} />
                     <DrawerLink to="/auditoria" label="Auditoria" icon={Shield} color="#374151" active={location.pathname === "/auditoria"} onClick={() => setIsOpen(false)} />
+                    <DrawerLink to="/backup" label="Backup de Dados" icon={Database} color="#f59e0b" active={location.pathname === "/backup"} onClick={() => setIsOpen(false)} />
                   </div>
                 </div>
               )}
