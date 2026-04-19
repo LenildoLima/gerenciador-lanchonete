@@ -10,7 +10,7 @@ interface Usuario {
   id: string;
   nome: string;
   email: string;
-  perfil: "admin" | "atendente";
+  perfil: "admin" | "atendente" | "cozinheiro";
   ativo: boolean;
   criado_em: string;
 }
@@ -41,7 +41,7 @@ export default function UsersPage() {
   const [novoNome, setNovoNome] = useState("");
   const [novoEmail, setNovoEmail] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
-  const [novoPerfil, setNovoPerfil] = useState<"admin" | "atendente">("atendente");
+  const [novoPerfil, setNovoPerfil] = useState<"admin" | "atendente" | "cozinheiro">("atendente");
   const [novoAtivo, setNovoAtivo] = useState(true);
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
@@ -294,6 +294,20 @@ export default function UsersPage() {
         }}
       >
         Admin
+      </span>
+    ) : perfil === "cozinheiro" ? (
+      <span
+        style={{
+          background: "#fef3c7",
+          color: "#92400e",
+          border: "1px solid #fde68a",
+          borderRadius: "0.4rem",
+          padding: "0.2rem 0.65rem",
+          fontSize: "0.75rem",
+          fontWeight: 700,
+        }}
+      >
+        Cozinheiro
       </span>
     ) : (
       <span
@@ -550,7 +564,9 @@ export default function UsersPage() {
                             borderRadius: "50%",
                             background: u.perfil === "admin"
                               ? "linear-gradient(135deg, #f97316, #ea580c)"
-                              : "linear-gradient(135deg, #3b82f6, #2563eb)",
+                              : u.perfil === "cozinheiro"
+                                ? "linear-gradient(135deg, #f59e0b, #d97706)"
+                                : "linear-gradient(135deg, #3b82f6, #2563eb)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -732,10 +748,11 @@ export default function UsersPage() {
                 </label>
                 <select
                   value={novoPerfil}
-                  onChange={(e) => setNovoPerfil(e.target.value as "admin" | "atendente")}
+                  onChange={(e) => setNovoPerfil(e.target.value as "admin" | "atendente" | "cozinheiro")}
                   style={{ ...inputStyle, cursor: "pointer" }}
                 >
                   <option value="atendente">Atendente</option>
+                  <option value="cozinheiro">Cozinheiro</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { registrarAuditoria } from "@/lib/auditoria";
 
-export type PerfilUsuario = "admin" | "atendente";
+export type PerfilUsuario = "admin" | "atendente" | "cozinheiro";
 
 export interface UsuarioLogado {
   id: string;

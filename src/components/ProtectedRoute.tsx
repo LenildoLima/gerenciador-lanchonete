@@ -39,9 +39,16 @@ export function ProtectedRoute({ children, apenasAdmin = false }: ProtectedRoute
     return <Navigate to="/login" replace />;
   }
 
-  // Página restrita a admin, mas o usuário é atendente
+  // Página restrita a admin, mas o usuário não é admin
   if (apenasAdmin && usuario.perfil !== "admin") {
-    return <Navigate to="/nova-venda" replace />;
+    // Se for cozinheiro, manda para cozinha, senão para vendas
+    const fallback = usuario.perfil === "cozinheiro" ? "/cozinha" : "/nova-venda";
+    return <Navigate to={fallback} replace />;
+  }
+
+  // Se for cozinheiro e tentar entrar na home (Dashboard), manda para cozinha
+  if (usuario.perfil === "cozinheiro" && window.location.pathname === "/") {
+    return <Navigate to="/cozinha" replace />;
   }
 
   return <>{children}</>;

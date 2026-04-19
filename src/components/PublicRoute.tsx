@@ -18,8 +18,11 @@ export function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (usuario) {
-    // Admin vai para o painel; atendente vai para nova venda
-    const destino = usuario.perfil === "admin" ? "/" : "/nova-venda";
+    // Admin vai para o painel; cozinheiro para cozinha; atendente vai para nova venda
+    const destino = 
+      usuario.perfil === "admin" ? "/" : 
+      usuario.perfil === "cozinheiro" ? "/cozinha" : 
+      "/nova-venda";
     return <Navigate to={destino} replace />;
   }
 

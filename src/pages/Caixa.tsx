@@ -102,25 +102,24 @@ export default function Caixa() {
           .order("criado_em", { ascending: false });
         setMovimentacoes((movs as any[]) || []);
 
-        // Buscar TODAS as vendas concluídas desde a abertura (detalhado para a lista)
+        // Buscar TODAS as vendas concluídas desde a abertura
         const { data: vendasDetalhadas } = await (supabase as any)
           .from("vendas")
-          .select("id, criado_em, total, nome_cliente, clientes(nome), entregas(taxa)")
+          .select("id, criado_em, total, nome_cliente, clientes(nome), entregas(taxa), formas_pagamento(nome)")
           .eq("situacao", "Concluída")
           .gte("criado_em", (aberto as any).aberto_em);
 
         const vData = (vendasDetalhadas as any[]) || [];
-        const totalVendas = vData.reduce((acc, v) => {
-          const taxa = v.entregas?.[0]?.taxa || 0;
-          return acc + v.total + taxa;
-        }, 0);
+        
+        // Total de todas as vendas (Dinheiro + Pix + Cartão)
+        const totalGeralVendas = vData.reduce((acc, v) => acc + (Number(v.total) || 0), 0);
 
         // Mapear vendas para o formato de movimentação
         const vendasMapeadas: Movimentacao[] = vData.map(v => ({
           id: v.id,
           tipo: 'venda',
-          valor: v.total + (v.entregas?.[0]?.taxa || 0),
-          descricao: `Venda para ${v.clientes?.nome || v.nome_cliente || 'Cliente'}`,
+          valor: Number(v.total) || 0,
+          descricao: `Venda (${v.formas_pagamento?.nome || '—'}) para ${v.clientes?.nome || v.nome_cliente || 'Cliente'}`,
           criado_em: v.criado_em
         }));
 
@@ -130,7 +129,7 @@ export default function Caixa() {
         );
 
         setMovimentacoes(todasMovs);
-        setCaixaAberto(prev => prev ? { ...prev, total_vendas: totalVendas } : null);
+        setCaixaAberto(prev => prev ? { ...prev, total_vendas: totalGeralVendas } : null);
       } else {
         setCaixaAberto(null);
         // Buscar último caixa fechado para sugestão de valor
@@ -440,7 +439,7 @@ export default function Caixa() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: "Abertura", value: caixaAberto.valor_abertura, icon: Wallet, color: "blue" },
-          { label: "Vendas Bruto", value: caixaAberto.total_vendas, icon: DollarSign, color: "green" },
+          { label: "Vendas Totais", value: caixaAberto.total_vendas, icon: DollarSign, color: "green" },
           { label: "Suprimentos", value: caixaAberto.total_suprimentos, icon: ArrowUpRight, color: "emerald" },
           { label: "Sangrias", value: caixaAberto.total_sangrias, icon: ArrowDownRight, color: "red" },
         ].map((item, i) => (
@@ -463,9 +462,9 @@ export default function Caixa() {
       {/* Destaque Saldo Esperado */}
       <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-3xl p-8 md:p-10 text-white shadow-xl shadow-orange-500/30 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all hover:scale-[1.01]">
         <div>
-          <p className="text-orange-100 font-bold uppercase tracking-widest text-xs mb-1">Saldo Esperado em Espécie</p>
+          <p className="text-orange-100 font-bold uppercase tracking-widest text-xs mb-1">Saldo Total Esperado (Gestão)</p>
           <h2 className="text-5xl font-black tracking-tighter">{formatCurrency(saldoEsperado)}</h2>
-          <p className="text-orange-200/80 text-sm mt-3 font-medium">(Abertura + Vendas + Taxas de Entrega + Suprimentos - Sangrias)</p>
+          <p className="text-orange-200/80 text-sm mt-3 font-medium">(Abertura + Vendas Totais + Suprimentos - Sangrias)</p>
         </div>
         <div className="flex gap-3">
           <Button onClick={() => setModalMov({ aberto: true, tipo: 'suprimento' })} className="bg-white text-orange-600 hover:bg-orange-50 font-black py-7 px-8 rounded-2xl gap-2 shadow-lg">
@@ -589,22 +588,20 @@ export default function Caixa() {
                   <p className="text-md font-bold text-foreground">{formatCurrency(caixaAberto.valor_abertura)}</p>
                 </div>
                 <div className="bg-muted/30 p-4 rounded-2xl border border-border/20">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-1">Vendas (Dinheiro)</p>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-1">Total de Vendas (Tudo)</p>
                   <p className="text-md font-bold text-foreground">{formatCurrency(caixaAberto.total_vendas)}</p>
                 </div>
                 <div className="bg-muted/30 p-4 rounded-2xl border border-border/20">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-1">Total Suprimentos</p>
-                  <p className="text-md font-bold text-green-600">{formatCurrency(caixaAberto.total_suprimentos)}</p>
-                </div>
-                <div className="bg-muted/30 p-4 rounded-2xl border border-border/20">
-                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-1">Total Sangrias</p>
-                  <p className="text-md font-bold text-red-600">{formatCurrency(caixaAberto.total_sangrias)}</p>
+                  <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider mb-1">Total Movimentações</p>
+                  <p className="text-md font-bold">
+                    <span className="text-green-600">+{formatCurrency(caixaAberto.total_suprimentos)}</span> / <span className="text-red-600">-{formatCurrency(caixaAberto.total_sangrias)}</span>
+                  </p>
                 </div>
               </div>
 
               <div className="bg-primary/10 border-2 border-primary/20 p-6 rounded-3xl flex items-center justify-between">
                 <div>
-                  <p className="text-[10px] font-black text-primary uppercase tracking-wider mb-1">Saldo Esperado em Caixa</p>
+                  <p className="text-[10px] font-black text-primary uppercase tracking-wider mb-1">Saldo Esperado (Dinheiro + Pix + Cartão)</p>
                   <p className="text-3xl font-black text-primary">{formatCurrency(saldoEsperado)}</p>
                 </div>
                 <AlertCircle size={32} className="text-primary/40 opacity-50" />
@@ -623,13 +620,13 @@ export default function Caixa() {
                 </div>
 
                 {/* Cálculo do Diferença em Tempo Real */}
-                {valorFechamento > 0 && (
-                  <div className={`p-4 rounded-2xl flex items-center justify-between border-2 transition-all ${valorFechamento === saldoEsperado ? "bg-green-50 border-green-200 text-green-700" :
+                {valorFechamento >= 0 && (
+                  <div className={`p-4 rounded-2xl flex items-center justify-between border-2 transition-all ${Math.abs(valorFechamento - saldoEsperado) < 0.01 ? "bg-green-50 border-green-200 text-green-700 shadow-sm" :
                       valorFechamento > saldoEsperado ? "bg-blue-50 border-blue-200 text-blue-700" :
                         "bg-red-50 border-red-200 text-red-700"
                     }`}>
                     <span className="text-sm font-bold">
-                      {valorFechamento === saldoEsperado ? "Caixa conferido ✓" :
+                      {Math.abs(valorFechamento - saldoEsperado) < 0.01 ? "Caixa conferido ✓" :
                         valorFechamento > saldoEsperado ? "Sobra em caixa" : "Falta de dinheiro"}
                     </span>
                     <span className="text-xl font-black">

@@ -29,7 +29,7 @@ const dropdownGroups = [
     icon: ShoppingBag,
     items: [
       { title: "Nova Venda", url: "/nova-venda", icon: ShoppingCart, color: "#16a34a", perfis: ["admin", "atendente"] },
-      { title: "Cozinha (KDS)", url: "/cozinha", icon: ChefHat, color: "#f59e0b", perfis: ["admin", "atendente"] },
+      { title: "Cozinha (KDS)", url: "/cozinha", icon: ChefHat, color: "#f59e0b", perfis: ["admin", "atendente", "cozinheiro"] },
       { title: "Vendas", url: "/vendas", icon: Receipt, color: "#2563eb", perfis: ["admin", "atendente"] },
       { title: "Entregas", url: "/entregas", icon: Bike, color: "#db2777", perfis: ["admin", "atendente"] },
     ]
@@ -95,7 +95,7 @@ export function Navbar() {
       <div className="container mx-auto px-4 h-full">
         <div className="flex h-full items-center justify-between">
           {/* ESQUERDA - apenas o logo */}
-          <Link to="/" className="flex flex-col group transition-all duration-300">
+          <Link to={usuario?.perfil === "cozinheiro" ? "/cozinha" : "/"} className="flex flex-col group transition-all duration-300">
             <div className="flex items-center gap-3">
               {/* Logo com Emoji e Efeito de Vidro Azulado */}
               <div className="w-12 h-12 rounded-2xl bg-[#1e3a8a]/20 backdrop-blur-sm shadow-xl flex items-center justify-center text-[28px] border border-white/10 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6">
@@ -119,17 +119,19 @@ export function Navbar() {
           <div className="flex items-center gap-4 h-full">
             {/* Desktop Menu */}
             <div className="hidden md:flex items-center gap-1 h-full" ref={dropdownRef}>
-              <Link
-                to="/"
-                className={`flex items-center gap-[0.4rem] h-[48px] px-4 rounded-[0.65rem] transition-all duration-200 text-[0.875rem] font-bold text-white bg-[#7c3aed] ${
-                  location.pathname === "/"
-                    ? "brightness-[85%] shadow-[0_2px_8px_rgba(0,0,0,0.2)]"
-                    : "hover:brightness-[115%]"
-                }`}
-              >
-                <LayoutDashboard size={20} className="text-white" />
-                Painel
-              </Link>
+              {usuario?.perfil !== "cozinheiro" && (
+                <Link
+                  to="/"
+                  className={`flex items-center gap-[0.4rem] h-[48px] px-4 rounded-[0.65rem] transition-all duration-200 text-[0.875rem] font-bold text-white bg-[#7c3aed] ${
+                    location.pathname === "/"
+                      ? "brightness-[85%] shadow-[0_2px_8px_rgba(0,0,0,0.2)]"
+                      : "hover:brightness-[115%]"
+                  }`}
+                >
+                  <LayoutDashboard size={20} className="text-white" />
+                  Painel
+                </Link>
+              )}
 
               {filteredGroups.map((group) => {
                 const active = openDropdown === group.name;
@@ -279,18 +281,20 @@ export function Navbar() {
 
         {isOpen && (
           <div className="md:hidden pb-6 space-y-4 animate-in slide-in-from-top-4 duration-300">
-            <Link
-              to="/"
-              onClick={() => setIsOpen(false)}
-              className={`flex items-center gap-3 px-4 py-4 rounded-xl transition-all shadow-md ${
-                location.pathname === "/"
-                  ? "bg-white text-orange-600 font-black"
-                  : "bg-white/10 text-white hover:bg-white/20 font-bold"
-              }`}
-            >
-              <LayoutDashboard size={20} />
-              <span>Painel</span>
-            </Link>
+            {usuario?.perfil !== "cozinheiro" && (
+              <Link
+                to="/"
+                onClick={() => setIsOpen(false)}
+                className={`flex items-center gap-3 px-4 py-4 rounded-xl transition-all shadow-md ${
+                  location.pathname === "/"
+                    ? "bg-white text-orange-600 font-black"
+                    : "bg-white/10 text-white hover:bg-white/20 font-bold"
+                }`}
+              >
+                <LayoutDashboard size={20} />
+                <span>Painel</span>
+              </Link>
+            )}
 
             {filteredGroups.map((group) => (
               <div key={group.name} className="space-y-2">

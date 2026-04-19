@@ -40,7 +40,10 @@ export default function Login() {
     // O redirecionamento fica a cargo do AuthContext via ProtectedRoute
     // Mas fazemos aqui também para agilizar
     // Buscamos o perfil direto do contexto atualizado via navigate
-    // O PublicRoute irá redirecionar adequadamente após o login
+    // O PublicRoute irá redirecionar adequadamente após o login (mas o usuário já estará logado e cairá no if(usuario))
+    
+    // Pegar o usuário logado para decidir o destino (embora o PublicRoute cuide disso no próximo render)
+    // Para simplificar e manter consistência:
     navigate("/", { replace: true });
   }
 
