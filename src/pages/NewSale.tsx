@@ -407,7 +407,6 @@ export default function NewSale() {
       }
 
       const nomeCliente = orderType === "Entrega" ? (selectedClient?.nome || "") : (identification || "");
-      const paymentMethod = paymentMethods.find(m => m.id === paymentMethodId);
       const isDinheiro = paymentMethod?.nome?.toLowerCase().includes("dinheiro") ?? false;
       const trocoInfo = (orderType === "Entrega" && isDinheiro && !noTroco && trocoValor)
         ? `Troco para R$ ${parseFloat(trocoValor).toFixed(2).replace(".", ",")}` : "";
