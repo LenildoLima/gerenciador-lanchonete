@@ -193,28 +193,28 @@ export default function KDS() {
   }
 
   return (
-    <div className="h-[calc(100vh-80px)] overflow-hidden flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+    <div className="min-h-screen md:h-[calc(100vh-80px)] md:overflow-hidden flex flex-col gap-4 md:gap-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black flex items-center gap-3">
-            <ChefHat className="text-primary" size={36} /> Visão de Cozinha (KDS)
+          <h1 className="text-xl md:text-3xl font-black flex items-center gap-2 md:gap-3">
+            <ChefHat className="text-primary md:w-9 md:h-9 md:grow-0" size={24} /> Visão de Cozinha (KDS)
           </h1>
-          <p className="text-muted-foreground font-medium">Gerenciamento de pedidos em tempo real</p>
+          <p className="text-xs md:text-sm text-muted-foreground font-medium">Gerenciamento em tempo real</p>
         </div>
-        <div className="flex gap-4">
-          <Badge variant="outline" className="px-4 py-2 rounded-xl text-md font-bold text-orange-600 bg-orange-50 border-orange-200">
+        <div className="flex flex-row gap-2 md:gap-4">
+          <Badge variant="outline" className="px-2 py-1 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-md font-bold text-orange-600 bg-orange-50 border-orange-200">
             {pendentes.length} Pendentes
           </Badge>
-          <Badge variant="outline" className="px-4 py-2 rounded-xl text-md font-bold text-blue-600 bg-blue-50 border-blue-200">
+          <Badge variant="outline" className="px-2 py-1 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-md font-bold text-blue-600 bg-blue-50 border-blue-200">
             {preparando.length} Preparando
           </Badge>
-          <Badge variant="outline" className="px-4 py-2 rounded-xl text-md font-bold text-green-600 bg-green-50 border-green-200">
+          <Badge variant="outline" className="px-2 py-1 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-md font-bold text-green-600 bg-green-50 border-green-200">
             {pedidos.length} Total
           </Badge>
         </div>
       </div>
 
-      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-6 p-4 -m-4 overflow-x-auto">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 p-2 md:p-4 -m-2 md:-m-4 overflow-y-auto md:overflow-x-auto">
         {/* COLUNA: PENDENTES */}
         <div className="flex flex-col gap-4 bg-muted/30 p-4 rounded-3xl border border-border/40">
           <h2 className="text-lg font-black flex items-center gap-2 px-2">
