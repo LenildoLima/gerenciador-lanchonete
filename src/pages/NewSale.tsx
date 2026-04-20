@@ -390,17 +390,27 @@ export default function NewSale() {
       // Gerar PIX se for o caso
       if (isPix) {
         try {
+          console.log('Chamando gerar-pix com valor:', Number(totalGeral));
           const { data: resData, error: pixError } = await (supabase as any).functions.invoke('gerar-pix', {
-            body: { valor: totalGeral, descricao: `Pedido LaunchApp - ${selectedClient?.nome || identification || 'Balcão'}` }
+            body: { 
+              valor: Number(totalGeral), 
+              descricao: `Pedido LaunchApp - ${cart.length} itens` 
+            }
           });
           
+          console.log('Resposta gerar-pix (data):', resData);
+          console.log('Resposta gerar-pix (error):', pixError);
+
           if (pixError) throw pixError;
           if (resData?.success) {
             pixData = { qr_code: resData.qr_code, qr_code_base64: resData.qr_code_base64 };
+            console.log('QR Code gerado com sucesso');
+          } else {
+            throw new Error(resData?.error || 'Erro desconhecido na resposta da função');
           }
         } catch (err: any) {
-          console.error("Erro ao gerar PIX:", err);
-          toast.error("Erro ao gerar QR Code PIX. Tente outra forma de pagamento.");
+          console.error("Erro detalhado ao gerar PIX:", err);
+          toast.error(`Erro PIX: ${err.message || 'Falha na comunicação com o servidor'}`);
           setIsSubmitting(false);
           return;
         }
