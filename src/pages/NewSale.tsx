@@ -351,7 +351,12 @@ export default function NewSale() {
       const obsCompleta = [trocoInfo, notes].filter(Boolean).join(" | ");
 
       const { error } = await (supabase as any).rpc("realizar_venda", {
-        p_itens: cart.map((i: any) => ({ produto_id: i.product.id, quantidade: i.quantity, preco_unitario: i.product.preco })),
+        p_itens: cart.map((i: any) => ({ 
+          produto_id: i.product.id, 
+          quantidade: i.quantity, 
+          preco_unitario: i.product.preco,
+          nome_produto: i.product.nome
+        })),
         p_pagamento_id: paymentMethodId,
         p_observacao: obsCompleta || "",
         p_cliente: nomeCliente,
@@ -444,7 +449,12 @@ export default function NewSale() {
     setIsSubmitting(true);
     try {
       const { error } = await (supabase as any).rpc("realizar_venda", {
-        p_itens: cart.map((i: any) => ({ produto_id: i.product.id, quantidade: i.quantity, preco_unitario: i.product.preco })),
+        p_itens: cart.map((i: any) => ({ 
+          produto_id: i.product.id, 
+          quantidade: i.quantity, 
+          preco_unitario: i.product.preco,
+          nome_produto: i.product.nome
+        })),
         p_pagamento_id: null,
         p_observacao: notes || "",
         p_cliente: identification || "",
@@ -526,7 +536,8 @@ export default function NewSale() {
         p_itens: cart.map((i: any) => ({ 
           produto_id: i.product.id, 
           quantidade: i.quantity, 
-          preco_unitario: i.product.preco 
+          preco_unitario: i.product.preco,
+          nome_produto: i.product.nome
         }))
       });
 
