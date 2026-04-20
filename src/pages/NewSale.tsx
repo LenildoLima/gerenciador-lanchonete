@@ -52,6 +52,8 @@ interface ReceiptData {
   clienteEndereco: string;
   clienteComplemento: string;
   dataHora: string;
+  qrCodeBase64?: string;
+  qrCodeTexto?: string;
 }
 
 // ======= CSS PRINT STYLE =======
@@ -91,6 +93,25 @@ function Receipt({ data }: { data: ReceiptData }) {
         <div style={{ fontWeight: "bold" }}>{"TOTAL"}{" ".repeat(32 - 5 - formatCurrency(data.totalGeral).length)}{formatCurrency(data.totalGeral)}</div>
         <div>{sep}</div>
         <div>Pagamento: {data.paymentName}</div>
+        
+        {data.paymentName.toLowerCase() === 'pix' && data.qrCodeBase64 && (
+          <div style={{ textAlign: "center", marginTop: 10 }}>
+            <div>{sep}</div>
+            <div style={{ fontWeight: "bold", margin: "4px 0" }}>Escaneie o QR Code para pagar</div>
+            <img 
+              src={`data:image/png;base64,${data.qrCodeBase64}`}
+              style={{ width: 150, height: 150, margin: '8px auto', display: 'block' }}
+              alt="QR Code PIX"
+            />
+            <div>{sep}</div>
+            <div style={{ fontSize: 10, marginTop: 4 }}>Ou copie o código PIX:</div>
+            <div style={{ fontSize: 9, wordBreak: "break-all", textAlign: "center", marginTop: 4 }}>
+              {data.qrCodeTexto?.match(/.{1,30}/g)?.join('\n')}
+            </div>
+            <div>{sep}</div>
+          </div>
+        )}
+
         {data.notes && <><div>{sep}</div><div style={{ fontSize: 11 }}>Obs: {data.notes}</div></>}
         <div>{sep}</div>
         <div style={{ textAlign: "center" }}>Bom apetite! 🍔</div>
@@ -144,6 +165,25 @@ function Receipt({ data }: { data: ReceiptData }) {
       <div style={{ fontWeight: "bold" }}>{"TOTAL"}{" ".repeat(32 - 5 - formatCurrency(data.totalGeral).length)}{formatCurrency(data.totalGeral)}</div>
       <div>{sep}</div>
       <div>Pagamento: {data.paymentName}</div>
+
+      {data.paymentName.toLowerCase() === 'pix' && data.qrCodeBase64 && (
+        <div style={{ textAlign: "center", marginTop: 10 }}>
+          <div>{sep}</div>
+          <div style={{ fontWeight: "bold", margin: "4px 0" }}>Escaneie o QR Code para pagar</div>
+          <img 
+            src={`data:image/png;base64,${data.qrCodeBase64}`}
+            style={{ width: 150, height: 150, margin: '8px auto', display: 'block' }}
+            alt="QR Code PIX"
+          />
+          <div>{sep}</div>
+          <div style={{ fontSize: 10, marginTop: 4 }}>Ou copie o código PIX:</div>
+          <div style={{ fontSize: 9, wordBreak: "break-all", textAlign: "center", marginTop: 4 }}>
+            {data.qrCodeTexto?.match(/.{1,30}/g)?.join('\n')}
+          </div>
+          <div>{sep}</div>
+        </div>
+      )}
+
       {data.isDinheiro && !data.noTroco && trocoNum !== null && (
         <>
           <div>Troco para: {formatCurrency(trocoNum)}</div>
@@ -343,6 +383,29 @@ export default function NewSale() {
     if (!paymentMethodId) { toast.error("Selecione a forma de pagamento"); return; }
     setIsSubmitting(true);
     try {
+      const paymentMethod = paymentMethods.find(m => m.id === paymentMethodId);
+      const isPix = paymentMethod?.nome?.toLowerCase().includes("pix");
+      let pixData = { qr_code: "", qr_code_base64: "" };
+
+      // Gerar PIX se for o caso
+      if (isPix) {
+        try {
+          const { data: resData, error: pixError } = await (supabase as any).functions.invoke('gerar-pix', {
+            body: { valor: totalGeral, descricao: `Pedido LaunchApp - ${selectedClient?.nome || identification || 'Balcão'}` }
+          });
+          
+          if (pixError) throw pixError;
+          if (resData?.success) {
+            pixData = { qr_code: resData.qr_code, qr_code_base64: resData.qr_code_base64 };
+          }
+        } catch (err: any) {
+          console.error("Erro ao gerar PIX:", err);
+          toast.error("Erro ao gerar QR Code PIX. Tente outra forma de pagamento.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       const nomeCliente = orderType === "Entrega" ? (selectedClient?.nome || "") : (identification || "");
       const paymentMethod = paymentMethods.find(m => m.id === paymentMethodId);
       const isDinheiro = paymentMethod?.nome?.toLowerCase().includes("dinheiro") ?? false;
@@ -390,6 +453,8 @@ export default function NewSale() {
         clienteEndereco: address,
         clienteComplemento: complement,
         dataHora,
+        qrCodeBase64: pixData.qr_code_base64,
+        qrCodeTexto: pixData.qr_code,
       });
 
       if (usuario) {
