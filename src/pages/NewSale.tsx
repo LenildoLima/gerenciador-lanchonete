@@ -11,6 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerFooter,
+} from "@/components/ui/drawer";
 
 interface Product {
   id: string;
@@ -208,6 +216,19 @@ export default function NewSale() {
   // Receipt
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+
+  // Mobile
+  const [isMobile, setIsMobile] = useState(false);
+  const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     fetchInitialData();
@@ -660,44 +681,123 @@ export default function NewSale() {
         </div>
       </div>
 
-      {/* Right — Cart */}
-      <div className="w-full lg:w-96 flex-none h-full">
-        <div className="card-metric flex flex-col h-full bg-card shadow-lg border-primary/10">
-          <div className="flex items-center justify-between mb-4 flex-none">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-primary/10 rounded-lg"><ShoppingCart className="w-5 h-5 text-primary" /></div>
-              <h2 className="font-bold text-lg">Carrinho</h2>
+      {/* Right — Cart (Desktop) */}
+      {!isMobile && (
+        <div className="w-full lg:w-96 flex-none h-full animate-in fade-in slide-in-from-right-4 duration-500">
+          <div className="card-metric flex flex-col h-full bg-card shadow-lg border-primary/10">
+            <div className="flex items-center justify-between mb-4 flex-none">
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-primary/10 rounded-lg"><ShoppingCart className="w-5 h-5 text-primary" /></div>
+                <h2 className="font-bold text-lg">Carrinho</h2>
+              </div>
+              <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-bold">{cart.reduce((s, i) => s + i.quantity, 0)} itens</span>
             </div>
-            <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-bold">{cart.reduce((s, i) => s + i.quantity, 0)} itens</span>
+            <div className="flex-1 overflow-y-auto space-y-3 pr-2 mb-4 scrollbar-thin scrollbar-thumb-muted-foreground/20">
+              {cart.length === 0 && <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50 py-12"><ShoppingCart className="w-12 h-12 mb-2" /><p className="text-sm">Seu carrinho está vazio</p></div>}
+              {cart.map((item) => (
+                <div key={item.product.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/40 border border-transparent hover:border-primary/20 transition-all">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold truncate text-foreground">{item.product.nome}</p>
+                    <p className="text-xs text-muted-foreground">{formatCurrency(item.product.preco)} / un.</p>
+                  </div>
+                  <div className="flex items-center gap-2 bg-background p-1.5 rounded-lg border border-border">
+                    <button onClick={() => updateQuantity(item.product.id, -1)} className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center transition-colors"><Minus className="w-3.5 h-3.5" /></button>
+                    <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
+                    <button onClick={() => updateQuantity(item.product.id, 1)} className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center transition-colors"><Plus className="w-3.5 h-3.5" /></button>
+                  </div>
+                  <button onClick={() => removeFromCart(item.product.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors"><X className="w-4 h-4" /></button>
+                </div>
+              ))}
+            </div>
+            <div className="flex-none border-t border-border pt-4 bg-card">
+              <div className="flex justify-between items-center mb-4">
+                <span className="text-muted-foreground font-medium">Total do Pedido</span>
+                <span className="text-2xl font-extrabold text-primary">{formatCurrency(subtotal)}</span>
+              </div>
+              <Button onClick={() => { setStep(linkedVendaId ? 2 : 1); setModalOpen(true); }} disabled={cart.length === 0} className="w-full h-12 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20">
+                {linkedVendaId ? "Confirmar Adição" : "Revisar Pedido"}
+              </Button>
+            </div>
           </div>
-          <div className="flex-1 overflow-y-auto space-y-3 pr-2 mb-4 scrollbar-thin scrollbar-thumb-muted-foreground/20">
-            {cart.length === 0 && <div className="h-full flex flex-col items-center justify-center text-muted-foreground opacity-50 py-12"><ShoppingCart className="w-12 h-12 mb-2" /><p className="text-sm">Seu carrinho está vazio</p></div>}
+        </div>
+      )}
+
+      {/* Floating Button (Mobile) */}
+      {isMobile && cart.length > 0 && (
+        <div className="fixed bottom-[80px] left-4 right-4 z-50 animate-in slide-in-from-bottom-10 duration-300">
+          <Button 
+            onClick={() => setIsCartDrawerOpen(true)}
+            className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl shadow-[0_8px_30px_rgb(249,115,22,0.3)] flex items-center justify-between px-6 border-none"
+          >
+            <div className="flex items-center gap-3">
+              <div className="bg-white/20 p-2 rounded-lg">
+                <ShoppingCart className="w-5 h-5 text-white" />
+              </div>
+              <span className="font-bold">Ver Carrinho ({cart.reduce((s, i) => s + i.quantity, 0)})</span>
+            </div>
+            <span className="font-black text-lg">{formatCurrency(subtotal)}</span>
+          </Button>
+        </div>
+      )}
+
+      {/* Cart Drawer (Mobile) */}
+      <Drawer open={isCartDrawerOpen} onOpenChange={setIsCartDrawerOpen}>
+        <DrawerContent className="max-h-[85vh] z-[100]">
+          <DrawerHeader className="border-b border-border/50 pb-4">
+            <DrawerTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShoppingCart className="w-5 h-5 text-primary" />
+                <span>Carrinho</span>
+              </div>
+              <span className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full font-bold">
+                {cart.reduce((s, i) => s + i.quantity, 0)} itens
+              </span>
+            </DrawerTitle>
+          </DrawerHeader>
+          
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
             {cart.map((item) => (
-              <div key={item.product.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/40 border border-transparent hover:border-primary/20 transition-all">
+              <div key={item.product.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-muted/40 border border-transparent">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold truncate text-foreground">{item.product.nome}</p>
                   <p className="text-xs text-muted-foreground">{formatCurrency(item.product.preco)} / un.</p>
                 </div>
                 <div className="flex items-center gap-2 bg-background p-1.5 rounded-lg border border-border">
-                  <button onClick={() => updateQuantity(item.product.id, -1)} className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center transition-colors"><Minus className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => updateQuantity(item.product.id, -1)} className="w-8 h-8 rounded-md hover:bg-muted flex items-center justify-center transition-colors"><Minus className="w-4 h-4" /></button>
                   <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
-                  <button onClick={() => updateQuantity(item.product.id, 1)} className="w-7 h-7 rounded-md hover:bg-muted flex items-center justify-center transition-colors"><Plus className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => updateQuantity(item.product.id, 1)} className="w-8 h-8 rounded-md hover:bg-muted flex items-center justify-center transition-colors"><Plus className="w-4 h-4" /></button>
                 </div>
                 <button onClick={() => removeFromCart(item.product.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-destructive transition-colors"><X className="w-4 h-4" /></button>
               </div>
             ))}
+            {cart.length === 0 && (
+              <div className="py-12 flex flex-col items-center justify-center text-muted-foreground opacity-50">
+                <ShoppingCart className="w-12 h-12 mb-2" />
+                <p>Seu carrinho está vazio</p>
+              </div>
+            )}
           </div>
-          <div className="flex-none border-t border-border pt-4 bg-card">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-muted-foreground font-medium">Total do Pedido</span>
-              <span className="text-2xl font-extrabold text-primary">{formatCurrency(subtotal)}</span>
+
+          <DrawerFooter className="border-t border-border p-4 bg-card">
+            <div className="flex justify-between items-center mb-4 px-2">
+              <span className="text-muted-foreground font-medium text-lg">Total do Pedido</span>
+              <span className="text-3xl font-black text-primary">{formatCurrency(subtotal)}</span>
             </div>
-            <Button onClick={() => { setStep(linkedVendaId ? 2 : 1); setModalOpen(true); }} disabled={cart.length === 0} className="w-full h-12 text-lg font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20">
-              {linkedVendaId ? "Confirmar Adição" : "Revisar Pedido"}
-            </Button>
-          </div>
-        </div>
-      </div>
+            <div className="grid grid-cols-2 gap-3">
+              <DrawerClose asChild>
+                <Button variant="outline" className="h-12 font-bold text-base">Fechar</Button>
+              </DrawerClose>
+              <Button 
+                onClick={() => { setIsCartDrawerOpen(false); setStep(linkedVendaId ? 2 : 1); setModalOpen(true); }}
+                disabled={cart.length === 0}
+                className="h-12 text-base font-bold bg-orange-500 text-white hover:bg-orange-600 border-none"
+              >
+                {linkedVendaId ? "Confirmar" : "Revisar Pedido"}
+              </Button>
+            </div>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
 
       {/* ===== CHECKOUT MODAL ===== */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
