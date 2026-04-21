@@ -44,8 +44,17 @@ Deno.serve(async (req) => {
     const data = await response.json()
 
     if (!response.ok) {
-      console.error('Erro Mercado Pago:', data)
-      throw new Error(data.message || 'Erro ao gerar PIX no Mercado Pago')
+      console.error('Erro Mercado Pago (status):', response.status)
+      console.error('Erro Mercado Pago (body):', JSON.stringify(data))
+      // Retorna 200 para que o SDK do Supabase não engula o body do erro
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: data.message || data.error || 'Erro ao gerar PIX no Mercado Pago',
+          details: data
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      )
     }
 
     return new Response(
@@ -60,9 +69,10 @@ Deno.serve(async (req) => {
     )
 
   } catch (error) {
+    console.error('Erro inesperado na Edge Function:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+      JSON.stringify({ success: false, error: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     )
   }
 })
