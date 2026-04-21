@@ -402,6 +402,9 @@ export default function NewSale() {
           console.log('Resposta gerar-pix (error):', pixError);
 
           if (pixError) throw pixError;
+          if (!resData || resData.success === false) {
+            throw new Error(resData?.error || 'Erro ao gerar PIX');
+          }
           if (resData?.success) {
             pixData = { qr_code: resData.qr_code, qr_code_base64: resData.qr_code_base64 };
             console.log('QR Code gerado com sucesso');

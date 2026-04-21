@@ -27,20 +27,14 @@ Deno.serve(async (req) => {
           'Content-Type': 'application/json',
           'X-Idempotency-Key': `launchapp-${Date.now()}`
         },
-        body: JSON.stringify((() => {
-          const expiration = new Date(Date.now() + 30 * 60 * 1000)
-          const pad = (n: number) => n.toString().padStart(2, '0')
-          const dateStr = `${expiration.getFullYear()}-${pad(expiration.getMonth()+1)}-${pad(expiration.getDate())}T${pad(expiration.getHours())}:${pad(expiration.getMinutes())}:${pad(expiration.getSeconds())}-03:00`
-          return {
-            transaction_amount: Number(valor),
-            description: descricao || 'Pedido LaunchApp',
-            payment_method_id: 'pix',
-            date_of_expiration: dateStr,
-            payer: {
-              email: 'cliente@launchapp.com'
-            }
+        body: JSON.stringify({
+          transaction_amount: Number(valor),
+          description: descricao || 'Pedido LaunchApp',
+          payment_method_id: 'pix',
+          payer: {
+            email: 'cliente@launchapp.com'
           }
-        })())
+        })
       }
     )
 
