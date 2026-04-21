@@ -31,14 +31,11 @@ Deno.serve(async (req) => {
           transaction_amount: Number(valor),
           description: descricao || 'Pedido LaunchApp',
           payment_method_id: 'pix',
+          date_of_expiration: new Date(Date.now() + 30 * 60 * 1000)
+            .toISOString()
+            .slice(0, 19) + '-03:00',
           payer: {
-            email: 'cliente@launchapp.com',
-            first_name: 'Cliente',
-            last_name: 'LaunchApp',
-            identification: {
-              type: 'CPF',
-              number: '00000000000'
-            }
+            email: 'cliente@launchapp.com'
           }
         })
       }
