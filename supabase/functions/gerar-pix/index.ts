@@ -18,6 +18,8 @@ Deno.serve(async (req) => {
 
     if (!valor || valor <= 0) throw new Error('Valor inválido')
 
+    const expirationDate = new Date(Date.now() + 30 * 60 * 1000).toISOString()
+
     const response = await fetch(
       'https://api.mercadopago.com/v1/payments',
       {
@@ -31,6 +33,7 @@ Deno.serve(async (req) => {
           transaction_amount: Number(valor),
           description: descricao || 'Pedido LaunchApp',
           payment_method_id: 'pix',
+          date_of_expiration: expirationDate,
           payer: {
             email: 'cliente@launchapp.com'
           }
