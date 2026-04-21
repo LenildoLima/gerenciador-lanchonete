@@ -35,7 +35,11 @@ Deno.serve(async (req) => {
           payment_method_id: 'pix',
           date_of_expiration: expirationDate,
           payer: {
-            email: 'cliente@launchapp.com'
+            email: 'cliente@launchapp.com',
+            identification: {
+              type: 'CPF',
+              number: '00000000191'
+            }
           }
         })
       }
